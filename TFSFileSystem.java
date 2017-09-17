@@ -125,7 +125,7 @@ public class TFSFileSystem
 		//initialize Directory object with root
 		root = new Directory("/");
 
-		//Testing purposes:
+		// //Testing purposes:
 		// //---------- TEST FAT
 		// fat.populateTest();
 		// fat.populateBlocks();
@@ -134,9 +134,12 @@ public class TFSFileSystem
 
 		//Writing PCB and FAT from memory to disk
 		//Write PCB at block 1 location
-		disk.tfs_dio_write_block(1, pcb.pcbBlock);
+		//disk.tfs_dio_write_block(1, pcb.pcbBlock);
+		_tfs_write_block(1, pcb.pcbBlock);
+
 		//Write FAT starting at block 2
-		disk.tfs_dio_write_block(2, fat.fatBlocks); //Writing FAT blocks of bytes to disk
+		//disk.tfs_dio_write_block(2, fat.fatBlocks); //Writing FAT blocks of bytes to disk
+		_tfs_write_block(2, fat.fatBlocks);
 
 		return 0;
 	}
@@ -175,8 +178,10 @@ public class TFSFileSystem
 		byte[] pcbBuffer = new byte[BLOCK_SIZE]; //Buffer for pcb block - PCB is one block in length
 		byte[] fatBuffer = new byte[fat.fatBlocks.length]; //Buffer for fat of length of fat
 
-		disk.tfs_dio_read_block(1, pcbBuffer); //Reading pcb block into Buffer
-		disk.tfs_dio_read_block(2, fatBuffer); //Reading FAT blocks into buffer
+		// disk.tfs_dio_read_block(1, pcbBuffer); //Reading pcb block into Buffer
+		// disk.tfs_dio_read_block(2, fatBuffer); //Reading FAT blocks into buffer
+		_tfs_read_block(1, pcbBuffer);
+		_tfs_read_block(2, fatBuffer);
 
 		//Saving root pointer from memory retrieved pcb buffer into variable
 		int fatSize = (((pcbBuffer[0] & 0xFF) << 24)|((pcbBuffer[1] & 0xFF) << 16)|((pcbBuffer[2] & 0xFF) << 8)|(pcbBuffer[3] & 0xFF))*4/128;
@@ -259,12 +264,16 @@ public class TFSFileSystem
 
  	private static int _tfs_read_block(int block_no, byte buf[])
  	{
- 		return -1;
+		//Calling TFSDiskInputOuput read method
+		int response = disk.tfs_dio_read_block(block_no, buf);
+ 		return response; //Returning reponse from method
  	}
 
  	private static int _tfs_write_block(int block_no, byte buf[])
  	{
- 		return -1;
+		//Calling TFSDiskInputOutput write method
+		int response = disk.tfs_dio_write_block(block_no, buf);
+ 		return response; //Returning response from method
  	}
 
  	private static int _tfs_open_fd(byte name[], int nlength)
