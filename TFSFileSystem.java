@@ -1,0 +1,398 @@
+/*
+	Data Structures used:
+		PCB: The Partition Control Block, or SuperBlock was implemented as
+				 an array of bytes within a PCB class. When a PCB object is
+				 created, the class constructor initializes the byte array and
+				 populates it with the right data. Using a class for this allows
+				 for another constructor to be created that takes as a parameter
+				 the PCB block from the disk and creates an in-memory object of it
+				 for quicker access. Each 4 bytes of the array translates to an
+				 integer. index 0 to 3 holds the FAT size, index 4 to 7 holds
+				 pointer to root directory and index 8 to 11 holds a pointer to
+				 the first free block.
+		FAT: The File Allocation Table was implemented as an array of bytes within
+				 a FAT class. When a FAT object is created, the class constructor
+				 initializes an int array and each index in the array corresponds to a
+				 block in memory where a file is located. Each index holds a pointer to
+				 the index of where the rest of the file is located and so on. This int
+				 array is turned into a byte array, every integer is represents by 4
+				 bytes. This byte array is used when the FAT is written to memory. Just
+				 like the PCB, having an exclusive FAT class allows for another
+				 constructor to be created later that takes the FAT block from disk as
+				 a parameter and creates an in-memory object for quicker access.
+		Directory: The directory was implemented using a linked list and uses a
+				 class of its own. Every directory is created as an object (list) of its
+				 own and then appended to its parent directory using an in-class method.
+				 The root directory initialized in-memory in tfs_mkfs will be written to
+				 to the disk as a byte array.
+*/
+
+
+import java.io.*;
+import java.util.*;
+
+public class TFSFileSystem
+{
+	static final String DISK_FILE = "TFSDiskFile"; //Name of Disk file to be created
+	static final int DISK_FILE_SIZE = 2048; //Number of blocks
+	static final int BLOCK_SIZE = 128; //Number of byes per block
+
+	static TFSDiskInputOutput disk = new TFSDiskInputOutput();
+	static PCB pcb; //Creating Partition Control Block
+	static FAT fat; //Creating File Allocation Table
+	static Directory root; //Creating Root directory
+
+
+	 //Main method:
+	 // Used for testing purposes. Some commented out code to keep things
+	 // clear.
+	 public static void main(String args[]){
+
+		 //Initializing objects - for testing purposes
+		 //byte[] name = DISK_FILE.getBytes();
+		 //disk.tfs_dio_create(name, name.length, DISK_FILE_SIZE);
+		 //disk.tfs_dio_open(test, test.length);
+		TFSFileSystem tru = new TFSFileSystem();
+
+		 //Initializing file system
+		 tru.tfs_mkfs();
+
+		//  //TEST reading from Disk
+		//  //Try reading FAT TABLE from file
+		//  byte[] tester = new byte[fat.fatBlocks.length];
+		//  disk.tfs_dio_read_block(2, tester);
+		//  System.out.println("\n\n\n\n\nTHIS IS THE DATA IN BYTES:");
+		//  int tmp = 0;
+		//  for (int i = 0; i < tester.length; i++, tmp++){
+		// 	 if (tmp == 4){
+		// 		 System.out.print("\t");
+		// 		 tmp = 0;
+		// 	 }
+		// 	 System.out.print(tester[i]);
+		//  }
+		//  //READING DATA FROM BYTES TO integers
+		//  System.out.println("\n\n\n\n\nTHIS IS THE DATA IN INTEGERS:");
+		//  tmp = 0;
+		//  int result;
+		//  for (int i = 0; i < tester.length; i++, tmp++){
+		// 	 result = (((tester[i]& 0xFF) << 24)|((tester[i+1] & 0xFF) << 16)|((tester[i+2] & 0xFF) << 8)|(tester[i+3] & 0xFF));
+		// 	 System.out.print(result + "\t");
+		// 	 result = 0;
+		// 	 i += 3;
+		// 	 System.out.println("I IS EQUAL TO: "+ i);
+		//  }
+		//
+		// //  Reading PCB
+		// System.out.println("\n\nPCB:");
+		//  byte[] read = new byte[BLOCK_SIZE];
+		//  disk.tfs_dio_read_block(1, read);
+		//  for (int i = 0; i < read.length; i++){
+		// 	 System.out.print(read[i]);
+		//  }
+		//  System.out.println();
+	 }
+
+	 /*
+ 	 * TFS Constructor
+ 	 */
+	public void TFSFileSystem()
+	{
+
+	}
+
+
+	/*
+	 * TFS API
+	 */
+
+	//tfs_mkfs method:
+	// Opens the disk file, creates and initializes PCB, FAT and
+	// Directory objects in memory. It also writes PCB and FAT to
+	// disk.
+	public static int tfs_mkfs()
+	{
+		//Try to open disk open if there is an error, return -1
+		byte[] name = DISK_FILE.getBytes();
+		int response = disk.tfs_dio_open(name, name.length);
+		if (response == -1){
+			return response; //Return error if cannot open
+		}
+
+		//initialize PCB object
+		pcb = new PCB(DISK_FILE_SIZE, BLOCK_SIZE);
+		//initialize FAT object
+		fat = new FAT(pcb.fatSize, BLOCK_SIZE);
+		//initialize Directory object with root
+		root = new Directory("/");
+
+		//Testing purposes:
+		// //---------- TEST FAT
+		// fat.populateTest();
+		// fat.populateBlocks();
+		// System.out.println(tfs_prrfs());
+		// //----------
+
+		//Writing PCB and FAT from memory to disk
+		//Write PCB at block 1 location
+		disk.tfs_dio_write_block(1, pcb.pcbBlock);
+		//Write FAT starting at block 2
+		disk.tfs_dio_write_block(2, fat.fatBlocks); //Writing FAT blocks of bytes to disk
+
+		return 0;
+	}
+
+	//tfs_exit method:
+	// Calls tfs_unmount and closes the disk file.
+	// Returns a string.
+	public static String tfs_exit(){
+		tfs_umount();
+		disk.tfs_dio_close();
+		return "tfs_exit from TFSFileSystem.java called.";
+	}
+
+	public static int tfs_mount()
+	{
+		return -1;
+	}
+
+	public static int tfs_umount()
+	{
+		return -1;
+	}
+
+	public static int tfs_sync()
+	{
+		return -1;
+	}
+
+	//tfs_prrfs method:
+	// Loads PCB and FAT from memory into a buffer.
+	// Returns both in a string.
+	public static String tfs_prrfs()
+	{
+		String blocksInDisk = null;
+
+		byte[] pcbBuffer = new byte[BLOCK_SIZE]; //Buffer for pcb block - PCB is one block in length
+		byte[] fatBuffer = new byte[fat.fatBlocks.length]; //Buffer for fat of length of fat
+
+		disk.tfs_dio_read_block(1, pcbBuffer); //Reading pcb block into Buffer
+		disk.tfs_dio_read_block(2, fatBuffer); //Reading FAT blocks into buffer
+
+		//Saving root pointer from memory retrieved pcb buffer into variable
+		int fatSize = (((pcbBuffer[0] & 0xFF) << 24)|((pcbBuffer[1] & 0xFF) << 16)|((pcbBuffer[2] & 0xFF) << 8)|(pcbBuffer[3] & 0xFF))*4/128;
+		//Saving free block pointer from memory retrieved pcb buffer into variable
+		int rootPointer = (((pcbBuffer[4] & 0xFF) << 24)|((pcbBuffer[5] & 0xFF) << 16)|((pcbBuffer[6] & 0xFF) << 8)|(pcbBuffer[7] & 0xFF));
+		//Saving fat size from pointer from memory retrieved pcb buffer into variable
+		int freeBlockPointer = (((pcbBuffer[8] & 0xFF) << 24)|((pcbBuffer[9] & 0xFF) << 16)|((pcbBuffer[10] & 0xFF) << 8)|(pcbBuffer[11] & 0xFF));
+
+		blocksInDisk = "\nIn File System:\n";
+		blocksInDisk += "PCB:\nRoot Pointer (block): " + rootPointer +  "\tFirst Free Block:" + freeBlockPointer +  "\tSize of FAT (blocks): " + fatSize + "\n";
+		blocksInDisk += "FAT:\n";
+		//Iterate through fatTable in disk file and append it to string
+		byte[] tmp = new byte[4];
+		int num;
+		//Divided by 4 because each int is represented by 4 bytes
+		for (int i = 0; i < (fatBuffer.length/4); i++){
+			tmp[0] = fatBuffer[i*4]; tmp[1] = fatBuffer[(i*4)+1]; tmp[2] = fatBuffer[(i*4)+2]; tmp[3] = fatBuffer[(i*4)+3];
+			//num converts 4 byte number into int
+			num = (((tmp[0] & 0xFF) << 24)|((tmp[1] & 0xFF) << 16)|((tmp[2] & 0xFF) << 8)|(tmp[3] & 0xFF));
+			blocksInDisk += i + ": " + num + "\t";
+			//System.out.println(i + ": " + num);
+		}
+		return blocksInDisk;
+	}
+
+	public static String tfs_prmfs()
+	{
+		return null;
+	}
+
+	public static int tfs_open(byte[] name, int nlength)
+	{
+		return -1;
+	}
+
+	public static int tfs_read(int file_id, byte[] buf, int blength)
+	{
+		return -1;
+	}
+
+	public static int tfs_write(int file_id, byte[] buf, int blength)
+	{
+		return -1;
+	}
+
+	public static int tfs_seek(int file_id, int position)
+	{
+		return -1;
+	}
+
+	public static void tfs_close(int file_id)
+	{
+		return;
+	}
+
+	public static int tfs_create(byte[] name, int nlength)
+	{
+		return -1;
+	}
+
+	public static int tfs_delete(byte[] name, int nlength)
+	{
+		return -1;
+	}
+
+	public static int tfs_create_dir(byte[] name, int nlength)
+	{
+		return -1;
+	}
+
+	public static int tfs_delete_dir(byte[] name, int nlength)
+	{
+		return -1;
+	}
+
+
+	/*
+	 * TFS private methods to handle in-memory structures
+	 */
+
+ 	private static int _tfs_read_block(int block_no, byte buf[])
+ 	{
+ 		return -1;
+ 	}
+
+ 	private static int _tfs_write_block(int block_no, byte buf[])
+ 	{
+ 		return -1;
+ 	}
+
+ 	private static int _tfs_open_fd(byte name[], int nlength)
+ 	{
+ 		return -1;
+ 	}
+
+ 	private static int _tfs_seek_fd(int fd, int offset)
+ 	{
+ 		return -1;
+ 	}
+
+ 	private static void _tfs_close_fd(int fd)
+ 	{
+ 		return;
+ 	}
+
+ 	private static int _tfs_get_block_no_fd(int fd, int offset)
+ 	{
+ 		return -1;
+ 	}
+}
+
+//PCB Class
+// Keeps track of size of FAT, pointer to root directory
+// and pointer to the next free block.
+class PCB{
+	//Creating class variables
+	byte[] pcbBlock; //Byte array representes PCB block
+
+	static int fatSize; //Size of FAT
+	static int numFatBlocks;
+	static int rootPointer; //Location of root
+	static int freeBlockPointer; //Location of first free block
+
+	//Object constructor
+	PCB(int fatSize, int BLOCK_SIZE){
+		this.fatSize = fatSize; //Size of fat table entries (int array)
+		numFatBlocks = fatSize * 4 / 128;
+		rootPointer = 1 + 1 + numFatBlocks; //Block location where root is being initialized to (+1 +1 because of PCB and BCB)
+		freeBlockPointer = 2 + numFatBlocks + 1; //0, 1, and FAT occupied blocks + 1 block after that will represent root directory
+
+		pcbBlock = new byte[BLOCK_SIZE]; //Initialize PCB byte block array
+		//Populating PCB byte block array
+		byte tmp[] = new byte[4];
+		//First 4 bytes of PCB represent size of FAT (number of entries)
+		tmp[3] = (byte)fatSize; tmp[2] = (byte)(fatSize>>8); tmp[1] = (byte)(fatSize>>16); tmp[0] = (byte)(fatSize>>24);
+		pcbBlock[0] = tmp[0]; pcbBlock[1] = tmp [1]; pcbBlock[2] = tmp[2]; pcbBlock[3] = tmp[3];
+		//Second 4 bytes of PCB represent rootPointer;
+		tmp[3] = (byte)rootPointer; tmp[2] = (byte)(rootPointer>>8); tmp[1] = (byte)(rootPointer>>16); tmp[0] = (byte)(rootPointer>>24);
+		pcbBlock[4] = tmp[0]; pcbBlock[5] = tmp [1]; pcbBlock[6] = tmp[2]; pcbBlock[7] = tmp[3];
+		//Third 4 bytes of PCB represent first free block
+		tmp[3] = (byte)freeBlockPointer; tmp[2] = (byte)(freeBlockPointer>>8); tmp[1] = (byte)(freeBlockPointer>>16); tmp[0] = (byte)(freeBlockPointer>>24);
+		pcbBlock[8] = tmp[0]; pcbBlock[9] = tmp [1]; pcbBlock[10] = tmp[2]; pcbBlock[11] = tmp[3];
+	}
+
+}
+
+//FAT Class:
+// Table from 0 to TotalBlockNumbers-1.
+// The index of the block number contains the link to the next
+// block. populateTest and populateBlock methods were created for
+// testing purposes.
+class FAT{
+	//Creating class variables
+	int fatSize;//number of entries
+	int[] fatTable; //int array to represent table
+
+	int numBlocks; //Size of fat in blocks of bytes
+	byte[] fatBlocks = null; //Array of bytes of n blocks
+
+	//Object constructor
+	FAT(int size, int BLOCK_SIZE){
+			this.fatSize = size; //Setting size of FAT in entries
+			fatTable = new int[fatSize]; //Initializing the file allocation table array
+
+			numBlocks = size * 4; //*4 because an int is 4 bytes in java
+			if (numBlocks % BLOCK_SIZE > 0){
+				numBlocks = (numBlocks / BLOCK_SIZE) + 1;
+			} else {
+				numBlocks = numBlocks/BLOCK_SIZE;
+			}
+
+			fatBlocks = new byte[numBlocks * BLOCK_SIZE]; //Number of blocks needed to represent FAT in disk
+
+	}
+
+	//Populate fatTable method - Testing purposes
+	public void populateTest(){
+			for (int i = 0; i < fatTable.length; i++){
+				fatTable[i] = 21696;
+			}
+	}
+	//Create FAT Blocks method - Testing purposes
+	public void populateBlocks(){
+		int a;
+		byte[] b = new byte[4];
+		int index = 0;
+
+		for (int i = 0; i < fatTable.length; i++){
+			a = fatTable[i];
+			b[3] = (byte)a;
+			b[2] = (byte)(a >> 8);
+			b[1] = (byte)(a >> 16);
+			b[0] = (byte)(a >> 24);
+
+			for (int j = 0; j < b.length; j++){
+				fatBlocks[(i*4) + j] = b[j];
+			}
+		}
+	}
+}
+
+//Directory Class
+//Implemented as a linked list
+class Directory {
+	//Creating and initializing linked list
+	List<String> list = new LinkedList<String>();
+	//Creating bytes blocks to store directory in disk
+	byte[] directoryBlocks;
+
+	//Object constructor
+	Directory(String name){
+		list.add(name); //Adds passed in String to list
+	}
+	//Used when appending subdirectories to parent directories
+	public void append(List<String> l){
+		list.addAll(l);
+	}
+
+}
