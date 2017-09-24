@@ -57,6 +57,17 @@ public class TFSFileSystem
 		 //Initializing file system
 		 tru.tfs_mkfs();
 
+		//  //Reading bytes from memory
+		//  byte[] test = new byte[BLOCK_SIZE];
+		//  for (int i = 2; i < fat.numBlocks+2; i++){
+		// 	 disk.tfs_dio_read_block(i, test);
+		// 	 System.out.print("BLOCK "+i + ": ");
+		// 	 for (int j = 0; j < BLOCK_SIZE; j++){
+		// 		 System.out.print(test[j]);
+		// 	 }
+		// 	 System.out.println();
+		//  }
+
 		//  //TEST reading from Disk
 		//  //Try reading FAT TABLE from file
 		//  byte[] tester = new byte[fat.fatBlocks.length];
@@ -126,11 +137,11 @@ public class TFSFileSystem
 		root = new Directory("/");
 
 		// //Testing purposes:
-		// //---------- TEST FAT
+		//---------- TEST FAT
 		// fat.populateTest();
 		// fat.populateBlocks();
-		// System.out.println(tfs_prrfs());
-		// //----------
+		//System.out.println(tfs_prrfs());
+		//----------
 
 		//Writing PCB and FAT from memory to disk
 		//Write PCB at block 1 location
@@ -139,7 +150,9 @@ public class TFSFileSystem
 
 		//Write FAT starting at block 2
 		//disk.tfs_dio_write_block(2, fat.fatBlocks); //Writing FAT blocks of bytes to disk
-		_tfs_write_block(2, fat.fatBlocks);
+		for (int i = 2; i < fat.numBlocks+2; i++){
+			_tfs_write_block(i, fat.fatBlocks[i-2]);
+		}
 
 		return 0;
 	}
@@ -176,12 +189,12 @@ public class TFSFileSystem
 		String blocksInDisk = null;
 
 		byte[] pcbBuffer = new byte[BLOCK_SIZE]; //Buffer for pcb block - PCB is one block in length
-		byte[] fatBuffer = new byte[fat.fatBlocks.length]; //Buffer for fat of length of fat
+		byte[] fatBuffer = new byte[BLOCK_SIZE]; //Buffer for fat of length of fat
 
 		// disk.tfs_dio_read_block(1, pcbBuffer); //Reading pcb block into Buffer
 		// disk.tfs_dio_read_block(2, fatBuffer); //Reading FAT blocks into buffer
 		_tfs_read_block(1, pcbBuffer);
-		_tfs_read_block(2, fatBuffer);
+		//_tfs_read_block(2, fatBuffer);
 
 		//Saving root pointer from memory retrieved pcb buffer into variable
 		int fatSize = (((pcbBuffer[0] & 0xFF) << 24)|((pcbBuffer[1] & 0xFF) << 16)|((pcbBuffer[2] & 0xFF) << 8)|(pcbBuffer[3] & 0xFF))*4/128;
@@ -193,17 +206,49 @@ public class TFSFileSystem
 		blocksInDisk = "\nIn File System:\n";
 		blocksInDisk += "PCB:\nRoot Pointer (block): " + rootPointer +  "\tFirst Free Block:" + freeBlockPointer +  "\tSize of FAT (blocks): " + fatSize + "\n";
 		blocksInDisk += "FAT:\n";
-		//Iterate through fatTable in disk file and append it to string
+
+		//  //Reading bytes from memory
+		//  byte[] test = new byte[BLOCK_SIZE];
+		//  for (int i = 2; i < fat.numBlocks+2; i++){
+		// 	 disk.tfs_dio_read_block(i, test);
+		// 	 System.out.print("BLOCK "+i + ": ");
+		// 	 for (int j = 0; j < BLOCK_SIZE; j++){
+		// 		 System.out.print(test[j]);
+		// 	 }
+		// 	 System.out.println();
+		//  }
+
+		//Iterate through fatBlocks in disk file and append it to string
 		byte[] tmp = new byte[4];
 		int num;
-		//Divided by 4 because each int is represented by 4 bytes
-		for (int i = 0; i < (fatBuffer.length/4); i++){
-			tmp[0] = fatBuffer[i*4]; tmp[1] = fatBuffer[(i*4)+1]; tmp[2] = fatBuffer[(i*4)+2]; tmp[3] = fatBuffer[(i*4)+3];
-			//num converts 4 byte number into int
-			num = (((tmp[0] & 0xFF) << 24)|((tmp[1] & 0xFF) << 16)|((tmp[2] & 0xFF) << 8)|(tmp[3] & 0xFF));
-			blocksInDisk += i + ": " + num + "\t";
-			//System.out.println(i + ": " + num);
+		//Iterating to read each block of fat starting at block 2
+		for (int i = 2; i < fat.numBlocks+2; i++){
+			_tfs_read_block(i, fatBuffer); //Reading FAT block into buffer
+			//Iterating through fatBuffer and translating bytes to ints into returning string
+			for (int j = 0; j < fatBuffer.length/4; j++) { //Divided by 4 because each int is represented by 4 bytes
+				//Storing four bytes that form an int into tmp
+				tmp[0] = fatBuffer[j*4]; tmp[1] = fatBuffer[(j*4)+1]; tmp[2] = fatBuffer[(j*4)+2]; tmp[3] = fatBuffer[(j*4)+3];
+				//Converting 4 bytes into int
+				num = (((tmp[0] & 0xFF) << 24)|((tmp[1] & 0xFF) << 16)|((tmp[2] & 0xFF) << 8)|(tmp[3] & 0xFF));
+				//Appending it to returning string
+				blocksInDisk += (j + ((i-2)*BLOCK_SIZE/4) + ": " + num + "\t");
+			}
 		}
+
+		System.out.println("HERE: \nfatBuffer Length: " + fatBuffer.length + "\nfat.numBlocks: " + fat.numBlocks);
+		//
+		//
+		// //Iterate through fatTable in disk file and append it to string
+		// byte[] tmp = new byte[4];
+		// int num;
+		// //Divided by 4 because each int is represented by 4 bytes
+		// for (int i = 0; i < (fatBuffer.length/4); i++){
+		// 	tmp[0] = fatBuffer[i*4]; tmp[1] = fatBuffer[(i*4)+1]; tmp[2] = fatBuffer[(i*4)+2]; tmp[3] = fatBuffer[(i*4)+3];
+		// 	//num converts 4 byte number into int
+		// 	num = (((tmp[0] & 0xFF) << 24)|((tmp[1] & 0xFF) << 16)|((tmp[2] & 0xFF) << 8)|(tmp[3] & 0xFF));
+		// 	blocksInDisk += i + ": " + num + "\t";
+		// 	//System.out.println(i + ": " + num);
+		// }
 		return blocksInDisk;
 	}
 
@@ -332,59 +377,63 @@ class PCB{
 
 }
 
-//FAT Class:
+//FAT Class
 // Table from 0 to TotalBlockNumbers-1.
 // The index of the block number contains the link to the next
 // block. populateTest and populateBlock methods were created for
 // testing purposes.
 class FAT{
 	//Creating class variables
+	int BLOCK_SIZE;
 	int fatSize;//number of entries
 	int[] fatTable; //int array to represent table
 
 	int numBlocks; //Size of fat in blocks of bytes
-	byte[] fatBlocks = null; //Array of bytes of n blocks
+	byte[][] fatBlocks = null; //Array of bytes of n blocks. Each row is a block.
 
 	//Object constructor
 	FAT(int size, int BLOCK_SIZE){
+		this.BLOCK_SIZE = BLOCK_SIZE;
 			this.fatSize = size; //Setting size of FAT in entries
 			fatTable = new int[fatSize]; //Initializing the file allocation table array
 
 			numBlocks = size * 4; //*4 because an int is 4 bytes in java
-			if (numBlocks % BLOCK_SIZE > 0){
-				numBlocks = (numBlocks / BLOCK_SIZE) + 1;
+			if (numBlocks % this.BLOCK_SIZE > 0){
+				numBlocks = (numBlocks / this.BLOCK_SIZE) + 1;
 			} else {
-				numBlocks = numBlocks/BLOCK_SIZE;
+				numBlocks = numBlocks/this.BLOCK_SIZE;
 			}
+			// double tmp1 = ((double)fatSize*4.0)/(double)this.BLOCK_SIZE; //Number of blocks FAT will take up in DiskFile
+			// int tmp = (int)Math.ceil(tmp1);
 
-			fatBlocks = new byte[numBlocks * BLOCK_SIZE]; //Number of blocks needed to represent FAT in disk
+			fatBlocks = new byte[numBlocks][this.BLOCK_SIZE]; //Number of blocks needed to represent FAT in disk
 
 	}
-
-	//Populate fatTable method - Testing purposes
-	public void populateTest(){
-			for (int i = 0; i < fatTable.length; i++){
-				fatTable[i] = 21696;
-			}
-	}
-	//Create FAT Blocks method - Testing purposes
-	public void populateBlocks(){
-		int a;
-		byte[] b = new byte[4];
-		int index = 0;
-
-		for (int i = 0; i < fatTable.length; i++){
-			a = fatTable[i];
-			b[3] = (byte)a;
-			b[2] = (byte)(a >> 8);
-			b[1] = (byte)(a >> 16);
-			b[0] = (byte)(a >> 24);
-
-			for (int j = 0; j < b.length; j++){
-				fatBlocks[(i*4) + j] = b[j];
-			}
-		}
-	}
+//Switched implementation from 1D array to 2D array. These methods don't work anymore
+// 	//Populate fatTable method - Testing purposes
+// 	public void populateTest(){
+// 			for (int i = 0; i < fatTable.length; i++){
+// 				fatTable[i] = 21696;
+// 			}
+// 	}
+// 	//Create FAT Blocks method - Testing purposes
+// 	public void populateBlocks(){
+// 		int a;
+// 		byte[] b = new byte[4];
+// 		int index = 0;
+//
+// 		for (int i = 0; i < fatTable.length; i++){
+// 			a = fatTable[i];
+// 			b[3] = (byte)a;
+// 			b[2] = (byte)(a >> 8);
+// 			b[1] = (byte)(a >> 16);
+// 			b[0] = (byte)(a >> 24);
+//
+// 			for (int j = 0; j < b.length; j++){
+// 				//fatBlocks[(i*4) + j] = b[j];
+// 			}
+// 		}
+// 	}
 }
 
 //Directory Class
@@ -402,6 +451,26 @@ class Directory {
 	//Used when appending subdirectories to parent directories
 	public void append(List<String> l){
 		list.addAll(l);
+	}
+
+}
+
+//File Descriptor Class
+
+class FileDescriptor{
+	//Class variables
+	String name;
+	boolean isDirectory;
+	int startingBlock;
+	int filePointer;
+	int fileSize;
+
+	FileDescriptor (String name, boolean isDirectory, int startingBlock, int filePointer, int fileSize){
+		this.name = name;
+		this.isDirectory = isDirectory;
+		this.startingBlock = startingBlock;
+		this.filePointer = filePointer;
+		this.fileSize = fileSize;
 	}
 
 }

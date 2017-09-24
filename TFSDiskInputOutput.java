@@ -111,7 +111,7 @@ public class TFSDiskInputOutput
 		try {
 			int pos = BLOCK_SIZE * block_no; //Get byte position to read from
 			raf.seek(pos); //Update pointer position
-			raf.read(buf); //Read bytes available into byte array buffer
+			raf.read(buf, 0, BLOCK_SIZE); //Read bytes available into byte array buffer
 		} catch(IOException ioe){
 			System.out.println("There was an error reading from disk: " + ioe.getMessage());
 			return -1;
@@ -131,7 +131,7 @@ public class TFSDiskInputOutput
 		try{
 			int pos = BLOCK_SIZE * block_no; //Get byte position to write to
 			raf.seek(pos); //Update pointer position
-			raf.write(buf); //Write bytes from byte array to pointer curr position
+			raf.write(buf, 0, BLOCK_SIZE); //Write bytes from byte array to pointer curr position
 		} catch(IOException ioe){
 			System.out.println("There was an error writing to the disk: " + ioe.getMessage());
 			return -1;
