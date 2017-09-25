@@ -42,6 +42,8 @@ public class TFSFileSystem
 	static FAT fat; //Creating File Allocation Table
 	static Directory root; //Creating Root directory
 
+	//DECIDE ON INITIAL SIZE OF FILEDESCRIPTOR TABLE
+	static FileDescriptor[] FDT = new FileDescriptor[20]; //Declaring File Descriptor table
 
 	 //Main method:
 	 // Used for testing purposes. Some commented out code to keep things
@@ -129,11 +131,11 @@ public class TFSFileSystem
 			return response; //Return error if cannot open
 		}
 
-		//initialize PCB object
+		//initialize PCB object in memory
 		pcb = new PCB(DISK_FILE_SIZE, BLOCK_SIZE);
-		//initialize FAT object
+		//initialize FAT object in memory
 		fat = new FAT(pcb.fatSize, BLOCK_SIZE);
-		//initialize Directory object with root
+		//initialize Directory object with root in memory
 		root = new Directory("/");
 
 		// //Testing purposes:
@@ -144,9 +146,7 @@ public class TFSFileSystem
 		//----------
 
 		//Writing PCB and FAT from memory to disk
-		//Write PCB at block 1 location
-		//disk.tfs_dio_write_block(1, pcb.pcbBlock);
-		_tfs_write_block(1, pcb.pcbBlock);
+		_tfs_write_pcb();
 
 		//Write FAT starting at block 2
 		//disk.tfs_dio_write_block(2, fat.fatBlocks); //Writing FAT blocks of bytes to disk
@@ -235,7 +235,6 @@ public class TFSFileSystem
 			}
 		}
 
-		System.out.println("HERE: \nfatBuffer Length: " + fatBuffer.length + "\nfat.numBlocks: " + fat.numBlocks);
 		//
 		//
 		// //Iterate through fatTable in disk file and append it to string
@@ -321,8 +320,10 @@ public class TFSFileSystem
  		return response; //Returning response from method
  	}
 
- 	private static int _tfs_open_fd(byte name[], int nlength)
+ 	private static int _tfs_open_fd(byte name[], int nlength, int first_block_no, int file_size)
  	{
+		FileDescriptor fd = new FileDescriptor(name, nlength, first_block_no, file_size);
+
  		return -1;
  	}
 
@@ -340,6 +341,24 @@ public class TFSFileSystem
  	{
  		return -1;
  	}
+
+	//_tfs_write_pcb method:
+	//	Write pcb back into disk
+	private static void _tfs_write_pcb(){
+		//Write pcb at block 1 location
+		//disk.tfs_dio_write_block(1, pcb.pcbBlock);
+		_tfs_write_block(1, pcb.pcbBlock);
+	}
+
+	//_tfs_read_pcb method:
+	//	Read pcb from disk into memory
+	private static void _tfs_read_pcb(){
+		byte[] pcbBuffer = new byte[BLOCK_SIZE]; //Creating and initializing buffer
+		_tfs_read_block(1, pcbBuffer); //Reading block of bytes into buffer
+		pcb.updatePCB(pcbBuffer); //Updates in memory pcb with disk pcb
+	}
+
+
 }
 
 //PCB Class
@@ -373,6 +392,16 @@ class PCB{
 		//Third 4 bytes of PCB represent first free block
 		tmp[3] = (byte)freeBlockPointer; tmp[2] = (byte)(freeBlockPointer>>8); tmp[1] = (byte)(freeBlockPointer>>16); tmp[0] = (byte)(freeBlockPointer>>24);
 		pcbBlock[8] = tmp[0]; pcbBlock[9] = tmp [1]; pcbBlock[10] = tmp[2]; pcbBlock[11] = tmp[3];
+	}
+
+	//Receives in PCB block from disk and updates in memory object attributes
+	public void updatePCB(byte[] pcbBuffer){
+		//Updating root pointer from memory retrieved pcb buffer
+		fatSize = (((pcbBuffer[0] & 0xFF) << 24)|((pcbBuffer[1] & 0xFF) << 16)|((pcbBuffer[2] & 0xFF) << 8)|(pcbBuffer[3] & 0xFF))*4/128;
+		//Updating free block pointer from memory retrieved pcb buffer
+		rootPointer = (((pcbBuffer[4] & 0xFF) << 24)|((pcbBuffer[5] & 0xFF) << 16)|((pcbBuffer[6] & 0xFF) << 8)|(pcbBuffer[7] & 0xFF));
+		//Updating fat size from pointer from memory retrieved pcb buffer
+		freeBlockPointer = (((pcbBuffer[8] & 0xFF) << 24)|((pcbBuffer[9] & 0xFF) << 16)|((pcbBuffer[10] & 0xFF) << 8)|(pcbBuffer[11] & 0xFF));
 	}
 
 }
@@ -456,16 +485,21 @@ class Directory {
 }
 
 //File Descriptor Class
-
 class FileDescriptor{
 	//Class variables
-	String name;
+	byte[] name;
 	boolean isDirectory;
 	int startingBlock;
 	int filePointer;
 	int fileSize;
 
-	FileDescriptor (String name, boolean isDirectory, int startingBlock, int filePointer, int fileSize){
+	FileDescriptor (byte name[], int nlength, int first_block_no, int file_size){
+		this.name = name;
+		this.startingBlock = first_block_no;
+		this.fileSize = file_size;
+	}
+
+	FileDescriptor (byte name[], boolean isDirectory, int startingBlock, int filePointer, int fileSize){
 		this.name = name;
 		this.isDirectory = isDirectory;
 		this.startingBlock = startingBlock;
