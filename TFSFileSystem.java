@@ -59,6 +59,11 @@ public class TFSFileSystem
 		 //Initializing file system
 		 tru.tfs_mkfs();
 
+		//  tru._tfs_write_pcb();
+		//  tru._tfs_read_pcb();
+		//  tru._tfs_read_fat();
+
+		//System.out.println("PCB SAYS FAT BLOCKS ARE: "+pcb.numFatBlocks + "\nFAT SAYS FAT BLOCKS ARE: "+ fat.numBlocks);
 		//  //Reading bytes from memory
 		//  byte[] test = new byte[BLOCK_SIZE];
 		//  for (int i = 2; i < fat.numBlocks+2; i++){
@@ -343,7 +348,7 @@ public class TFSFileSystem
  	}
 
 	//_tfs_write_pcb method:
-	//	Write pcb back into disk
+	//	Write PCB back into disk
 	private static void _tfs_write_pcb(){
 		//Write pcb at block 1 location
 		//disk.tfs_dio_write_block(1, pcb.pcbBlock);
@@ -351,11 +356,23 @@ public class TFSFileSystem
 	}
 
 	//_tfs_read_pcb method:
-	//	Read pcb from disk into memory
+	//	Read PCB from disk into memory
 	private static void _tfs_read_pcb(){
 		byte[] pcbBuffer = new byte[BLOCK_SIZE]; //Creating and initializing buffer
 		_tfs_read_block(1, pcbBuffer); //Reading block of bytes into buffer
 		pcb.updatePCB(pcbBuffer); //Updates in memory pcb with disk pcb
+	}
+
+	//_tfs_read_fat method:
+	//	Read FAT from the disk into memory
+	private static void _tfs_read_fat(){
+		byte[] fatBuffer = new byte[BLOCK_SIZE]; //Creating and initializing buffer
+		for (int i = 2; i < fat.numBlocks+2; i++){
+			_tfs_read_block(i, fatBuffer); //Reads block of FAT from disk
+			fat.updateFATBlocks(fatBuffer, i-2); //Updates each block every iteration
+		}
+		//Update FAT Table entries
+		fat.updateFATTable();
 	}
 
 
@@ -376,7 +393,13 @@ class PCB{
 	//Object constructor
 	PCB(int fatSize, int BLOCK_SIZE){
 		this.fatSize = fatSize; //Size of fat table entries (int array)
-		numFatBlocks = fatSize * 4 / 128;
+		numFatBlocks = fatSize * 4; //*4 because an int is 4 bytes in java
+		if (numFatBlocks % BLOCK_SIZE > 0){
+			numFatBlocks = (numFatBlocks / BLOCK_SIZE) + 1;
+		} else {
+			numFatBlocks = numFatBlocks / BLOCK_SIZE;
+		}
+
 		rootPointer = 1 + 1 + numFatBlocks; //Block location where root is being initialized to (+1 +1 because of PCB and BCB)
 		freeBlockPointer = 2 + numFatBlocks + 1; //0, 1, and FAT occupied blocks + 1 block after that will represent root directory
 
@@ -422,7 +445,7 @@ class FAT{
 
 	//Object constructor
 	FAT(int size, int BLOCK_SIZE){
-		this.BLOCK_SIZE = BLOCK_SIZE;
+			this.BLOCK_SIZE = BLOCK_SIZE;
 			this.fatSize = size; //Setting size of FAT in entries
 			fatTable = new int[fatSize]; //Initializing the file allocation table array
 
@@ -436,8 +459,36 @@ class FAT{
 			// int tmp = (int)Math.ceil(tmp1);
 
 			fatBlocks = new byte[numBlocks][this.BLOCK_SIZE]; //Number of blocks needed to represent FAT in disk
-
 	}
+
+	//updateFATBlocks method:
+	//	Updates the FAT blocks of bytes in memory using bytes from disk
+	public void updateFATBlocks(byte[] fatBuffer, int k){
+		for (int i = 0; i < fatBuffer.length; i++){
+			//Copying bytes
+			fatBlocks[k][i] = fatBuffer[i];
+		}
+	}
+
+	//updateFATBlocks method:
+	//	Updates the FAT Table in memory using bytes from already updated from disk
+	public void updateFATTable(){
+		byte[] tmp = new byte[4];
+		int num;
+		int k = 0; //Index of fat entry we are updating
+		//Iterating through FAT blocks and inserting them into in memory FAT table
+		for (int i = 0; i < fatBlocks.length; i++){
+			for (int j = 0; j < fatBlocks[i].length/4; j++){
+				//Storing four bytes that form an int into tmp
+				tmp[0] = fatBlocks[i][j*4]; tmp[1] = fatBlocks[i][(j*4)+1]; tmp[2] = fatBlocks[i][(j*4)+2]; tmp[3] = fatBlocks[i][(j*4)+3];
+				//Converting 4 bytes into int
+				num = (((tmp[0] & 0xFF) << 24)|((tmp[1] & 0xFF) << 16)|((tmp[2] & 0xFF) << 8)|(tmp[3] & 0xFF));
+				fatTable[k] = num; //Updating FAT table entry
+				k++; //Updating our index
+			}
+		}
+	}
+
 //Switched implementation from 1D array to 2D array. These methods don't work anymore
 // 	//Populate fatTable method - Testing purposes
 // 	public void populateTest(){
