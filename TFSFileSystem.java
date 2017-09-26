@@ -59,6 +59,8 @@ public class TFSFileSystem
 		 //Initializing file system
 		 tru.tfs_mkfs();
 
+		 System.out.println(tru.tfs_prmfs());
+
 		//  tru._tfs_write_pcb();
 		//  tru._tfs_read_pcb();
 		//  tru._tfs_read_fat();
@@ -221,19 +223,8 @@ public class TFSFileSystem
 		int freeBlockPointer = (((pcbBuffer[8] & 0xFF) << 24)|((pcbBuffer[9] & 0xFF) << 16)|((pcbBuffer[10] & 0xFF) << 8)|(pcbBuffer[11] & 0xFF));
 
 		blocksInDisk = "\nIn File System:\n";
-		blocksInDisk += "PCB:\nRoot Pointer (block): " + rootPointer +  "\tFirst Free Block:" + freeBlockPointer +  "\tSize of FAT (blocks): " + fatSize + "\n";
+		blocksInDisk += "PCB:\nRoot Pointer (block #): " + rootPointer +  "\tFirst Free Block: " + freeBlockPointer +  "\tSize of FAT (blocks): " + fatSize + "\n";
 		blocksInDisk += "FAT:\n";
-
-		//  //Reading bytes from memory
-		//  byte[] test = new byte[BLOCK_SIZE];
-		//  for (int i = 2; i < fat.numBlocks+2; i++){
-		// 	 disk.tfs_dio_read_block(i, test);
-		// 	 System.out.print("BLOCK "+i + ": ");
-		// 	 for (int j = 0; j < BLOCK_SIZE; j++){
-		// 		 System.out.print(test[j]);
-		// 	 }
-		// 	 System.out.println();
-		//  }
 
 		//Iterate through fatBlocks in disk file and append it to string
 		byte[] tmp = new byte[4];
@@ -251,26 +242,20 @@ public class TFSFileSystem
 				blocksInDisk += (j + ((i-2)*BLOCK_SIZE/4) + ": " + num + "\t");
 			}
 		}
-
-		//
-		//
-		// //Iterate through fatTable in disk file and append it to string
-		// byte[] tmp = new byte[4];
-		// int num;
-		// //Divided by 4 because each int is represented by 4 bytes
-		// for (int i = 0; i < (fatBuffer.length/4); i++){
-		// 	tmp[0] = fatBuffer[i*4]; tmp[1] = fatBuffer[(i*4)+1]; tmp[2] = fatBuffer[(i*4)+2]; tmp[3] = fatBuffer[(i*4)+3];
-		// 	//num converts 4 byte number into int
-		// 	num = (((tmp[0] & 0xFF) << 24)|((tmp[1] & 0xFF) << 16)|((tmp[2] & 0xFF) << 8)|(tmp[3] & 0xFF));
-		// 	blocksInDisk += i + ": " + num + "\t";
-		// 	//System.out.println(i + ": " + num);
-		// }
 		return blocksInDisk;
 	}
 
 	public static String tfs_prmfs()
 	{
-		return null;
+		//Building string to be returned
+		String inMemory = "\nIn Memory:\n";
+		inMemory += "PCB:\nRoot Pointer (block #): " + pcb.rootPointer + "\tFirst Free Block: " + pcb.freeBlockPointer + "\tSize of FAT (blocks): " + pcb.numFatBlocks + "\n";
+		inMemory += "FAT:\n";
+		//Itereating through fat and appending each value
+		for (int i = 0; i < fat.fatTable.length; i++){
+			inMemory += i + ": " + fat.fatTable[i] + "\t";
+		}
+		return inMemory;
 	}
 
 	public static int tfs_open(byte[] name, int nlength)
