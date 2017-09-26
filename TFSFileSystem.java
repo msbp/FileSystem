@@ -385,7 +385,7 @@ public class TFSFileSystem
 
 	}
 	private static int _tfs_attach_block_fat(int start_block_no, int new_block_no){
-
+		return 0;
 	}
 
 	//===Block handling utilities===
@@ -410,7 +410,42 @@ public class TFSFileSystem
 		block[offset] = tmp[0]; block[offset+1] = tmp[1]; block[offset+2] = tmp[2]; block[offset+3] = tmp[3];
 	}
 
+	//_tfs_get_byte_block method:
+	//	Get a byte from a block
+	private static byte _tfs_get_byte_block(byte[] block, int offset){
+		return block[offset];
+	}
+
+	//_tfs_put_byte_block method:
+	//	Put a byte into a block
+	private static void _tfs_put_byte_block(byte[] block, int offset, byte data){
+		block[offset] = data;
+	}
+
+	//_tfs_get_bytes_block method:
+	//	Get bytes from a block
+	private static byte[] _tfs_get_bytes_block(byte[] block, int offset, int length){
+		//Creating and initializing byte buffer
+		byte[] buffer = new byte[length];
+		for (int i = offset; i < (offset + length); i++){
+			buffer[i - offset] = block[i]; //Copying bytes
+		}
+		return buffer;
+	}
+
+	//_tfs_put_bytes_block method:
+	//	Put bytes into a block
+	private static void _tfs_put_bytes_block(byte[] block, int offset, byte[] buf, int length){
+		//Iterating through part of block and updating it
+		for (int i = offset; i < (offset + length); i++){
+			block[i] = buf[i-offset];
+		}
+	}
+
+
+
 }
+
 
 //PCB Class
 // Keeps track of size of FAT, pointer to root directory
