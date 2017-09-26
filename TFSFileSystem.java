@@ -140,7 +140,7 @@ public class TFSFileSystem
 		pcb = new PCB(DISK_FILE_SIZE, BLOCK_SIZE);
 		//initialize FAT object in memory
 		fat = new FAT(pcb.fatSize, BLOCK_SIZE);
-		//initialize Directory object with root in memory
+		//initialize root Directory object in memory
 		root = new Directory("/");
 
 		// //Testing purposes:
@@ -171,14 +171,26 @@ public class TFSFileSystem
 		return "tfs_exit from TFSFileSystem.java called.";
 	}
 
+	//tfs_mount method:
+	//	Writes PCB and FAT to disk
 	public static int tfs_mount()
 	{
-		return -1;
+		//Write PCB from memory to disk
+		_tfs_write_pcb();
+		//Write FAT from memory to disk
+		_tfs_write_fat();
+		return 0;
 	}
 
+	//tfs_umount method:
+	//	Reads PCB and FAT from disk to memory
 	public static int tfs_umount()
 	{
-		return -1;
+		//Read PCB
+		_tfs_read_pcb();
+		//Read FAT
+		_tfs_read_fat();
+		return 0;
 	}
 
 	public static int tfs_sync()
@@ -351,7 +363,6 @@ public class TFSFileSystem
 	//	Write PCB back into disk
 	private static void _tfs_write_pcb(){
 		//Write pcb at block 1 location
-		//disk.tfs_dio_write_block(1, pcb.pcbBlock);
 		_tfs_write_block(1, pcb.pcbBlock);
 	}
 
@@ -361,6 +372,15 @@ public class TFSFileSystem
 		byte[] pcbBuffer = new byte[BLOCK_SIZE]; //Creating and initializing buffer
 		_tfs_read_block(1, pcbBuffer); //Reading block of bytes into buffer
 		pcb.updatePCB(pcbBuffer); //Updates in memory pcb with disk pcb
+	}
+
+	//_tfs_write_fat method:
+	//	Write FAT back into disk
+	private static void _tfs_write_fat(){
+		//Write fat starting at location 2
+		for (int i = 2; i < fat.numBlocks+2; i++){
+			_tfs_write_block(i, fat.fatBlocks[i-2]);
+		}
 	}
 
 	//_tfs_read_fat method:
@@ -557,7 +577,6 @@ class FAT{
 			}
 		}
 	}
-
 //Switched implementation from 1D array to 2D array. These methods don't work anymore
 // 	//Populate fatTable method - Testing purposes
 // 	public void populateTest(){
@@ -601,7 +620,6 @@ class Directory {
 	public void append(List<String> l){
 		list.addAll(l);
 	}
-
 }
 
 //File Descriptor Class
