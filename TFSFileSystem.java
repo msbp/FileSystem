@@ -375,6 +375,40 @@ public class TFSFileSystem
 		fat.updateFATTable();
 	}
 
+	//_tfs_get_block_fat method
+	//	Gets a free block from FAT
+	private static int _tfs_get_block_fat(){
+		return pcb.freeBlockPointer; //Returns index of free block in disk stored in PCB object
+	}
+
+	private static void _tfs_return_block_fat(int block_no){
+
+	}
+	private static int _tfs_attach_block_fat(int start_block_no, int new_block_no){
+
+	}
+
+	//===Block handling utilities===
+	//_tfs_get_int_block method:
+	//	Get an integer from a block
+	private static int _tfs_get_int_block(byte[] block, int offset){
+		byte[] tmp = new byte[4];
+		int num;
+		//Storing four bytes that form an int into tmp
+		tmp[0] = block[offset]; tmp[1] = block[offset + 1]; tmp[2] = block[offset + 2]; tmp[3] = block[offset + 3];
+		//Converting 4 bytes into int
+		num = (((tmp[0] & 0xFF) << 24)|((tmp[1] & 0xFF) << 16)|((tmp[2] & 0xFF) << 8)|(tmp[3] & 0xFF));
+		return num;
+	}
+
+	//_tfs_put_int_block method:
+	//	Puts an integer into a block
+	private static void _tfs_put_int_block(byte[] block, int offset, int data){
+		//Translating data to byte array
+		byte[] tmp = new byte[4];
+		tmp[3] = (byte)data; tmp[2] = (byte)(data>>8); tmp[1] = (byte)(data>>16); tmp[0] = (byte)(data>>24);
+		block[offset] = tmp[0]; block[offset+1] = tmp[1]; block[offset+2] = tmp[2]; block[offset+3] = tmp[3];
+	}
 
 }
 
