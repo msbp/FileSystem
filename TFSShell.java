@@ -181,21 +181,35 @@ public class TFSShell extends Thread
  * You need to implement these commands
  */
 
- //mkfs method:
- // Creates file system.
+ 	//mkfs method:
+ 	// Creates file system.
 	void mkfs()
 	{
 		fs.tfs_mkfs();
 		return;
 	}
 
+	//mount method:
+	//	Mounts file system
 	void mount()
 	{
+		fs.tfs_mount();
 		return;
 	}
 
+	//unmount method:
+	//	Unmounts file system
+	void unmount()
+	{
+		fs.tfs_unmount();
+		return;
+	}
+
+	//sync method:
+	//	Syncs file system
 	void sync()
 	{
+		fs.sync();
 		return;
 	}
 
@@ -204,6 +218,14 @@ public class TFSShell extends Thread
 	void prrfs()
 	{
 		System.out.println(fs.tfs_prrfs());
+		return;
+	}
+
+	//prmfs method:
+	//	Prints out FAT and PCB in memory
+	void prmfs()
+	{
+		System.out.println(fs.tfs_prmfs());
 		return;
 	}
 
