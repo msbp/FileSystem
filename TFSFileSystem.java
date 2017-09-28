@@ -336,7 +336,8 @@ public class TFSFileSystem
 	//	Change the file pointer to offset
  	private static int _tfs_seek_fd(int fd, int offset)
  	{
- 		return -1;
+		fdt.indexOf(fd).filePointer = offset;
+ 		return 0;
  	}
 
 	//_tfs_close_fd method:
@@ -622,8 +623,8 @@ class FileDescriptor{
 	byte[] name;
 	boolean isDirectory;
 	int startingBlock;
-	int filePointer;
-	int fileSize;
+	int filePointer; //This is the offset where the process reads from or writes to
+	int fileSize; //Total size in bytes
 
 	FileDescriptor (byte name[], int nlength, int first_block_no, int file_size){
 		this.name = name;
