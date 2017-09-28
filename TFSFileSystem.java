@@ -42,8 +42,7 @@ public class TFSFileSystem
 	static FAT fat; //Creating File Allocation Table
 	static Directory root; //Creating Root directory
 
-	//DECIDE ON INITIAL SIZE OF FILEDESCRIPTOR TABLE
-	static FileDescriptor[] FDT = new FileDescriptor[20]; //Declaring File Descriptor table
+	List<FileDescriptor> fdt = new LinkedList<FileDescriptor>(); //Declaring File Descriptor table (implemented as a list)
 
 	 //Main method:
 	 // Used for testing purposes. Some commented out code to keep things
@@ -322,11 +321,14 @@ public class TFSFileSystem
  		return response; //Returning response from method
  	}
 
+	//_tfs_open_fd method:
+	//
  	private static int _tfs_open_fd(byte name[], int nlength, int first_block_no, int file_size)
  	{
+		//Creating File Descriptor object
 		FileDescriptor fd = new FileDescriptor(name, nlength, first_block_no, file_size);
-
- 		return -1;
+		fdt.add(fd); //Adding it to the File Descriptor Table (Implemented as a linked list)
+ 		return (fdt.size() - 1); //Returning index of file descriptor
  	}
 
  	private static int _tfs_seek_fd(int fd, int offset)
