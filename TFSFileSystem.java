@@ -42,7 +42,7 @@ public class TFSFileSystem
 	static FAT fat; //Creating File Allocation Table
 	static Directory root; //Creating Root directory
 
-	List<FileDescriptor> fdt = new LinkedList<FileDescriptor>(); //Declaring File Descriptor table (implemented as a list)
+	static List<FileDescriptor> fdt = new LinkedList<FileDescriptor>(); //Declaring File Descriptor table (implemented as a list)
 
 	 //Main method:
 	 // Used for testing purposes. Some commented out code to keep things
@@ -322,7 +322,8 @@ public class TFSFileSystem
  	}
 
 	//_tfs_open_fd method:
-	//
+	//	Create a new entry in File Descriptor Table for a file or directory
+	//	Returns file descriptor
  	private static int _tfs_open_fd(byte name[], int nlength, int first_block_no, int file_size)
  	{
 		//Creating File Descriptor object
@@ -331,13 +332,18 @@ public class TFSFileSystem
  		return (fdt.size() - 1); //Returning index of file descriptor
  	}
 
+	//_tfs_seek_fd method:
+	//	Change the file pointer to offset
  	private static int _tfs_seek_fd(int fd, int offset)
  	{
  		return -1;
  	}
 
+	//_tfs_close_fd method:
+	//	Remove FileDescriptor of index fd from File Descriptor Table
  	private static void _tfs_close_fd(int fd)
  	{
+		fdt.remove(fd); //Removes FileDescriptor object from FDT
  		return;
  	}
 
@@ -591,8 +597,8 @@ class FAT{
 // 	}
 }
 
-//Directory Class
-//Implemented as a linked list
+//Directory Class:
+//	Implemented as a linked list
 class Directory {
 	//Creating and initializing linked list
 	List<String> list = new LinkedList<String>();
@@ -610,6 +616,7 @@ class Directory {
 }
 
 //File Descriptor Class
+//	Implemented as a linked list
 class FileDescriptor{
 	//Class variables
 	byte[] name;
