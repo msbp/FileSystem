@@ -336,7 +336,7 @@ public class TFSFileSystem
 	//	Change the file pointer to offset
  	private static int _tfs_seek_fd(int fd, int offset)
  	{
-		fdt.indexOf(fd).filePointer = offset;
+		fdt.get(fd).filePointer = offset;
  		return 0;
  	}
 
@@ -347,6 +347,15 @@ public class TFSFileSystem
 		fdt.remove(fd); //Removes FileDescriptor object from FDT
  		return;
  	}
+
+	//_tfs_read_bytes_fd method:
+	//	Read up to length bytes from FileDescriptor starting at offset
+	private static int _tfs_read_bytes_fd(int fd, byte[] buf, int length)
+	{
+		FileDescriptor f = fdt.get(fd);
+		buf = _tfs_get_bytes_block(f.fdBlock, f.filePointer, length); //Read bytes from FileDescriptor bytes from offset to length of buffer
+		return buf.length;
+	}
 
  	private static int _tfs_get_block_no_fd(int fd, int offset)
  	{
@@ -625,6 +634,8 @@ class FileDescriptor{
 	int startingBlock;
 	int filePointer; //This is the offset where the process reads from or writes to
 	int fileSize; //Total size in bytes
+
+	byte[] fdBlock; //Block of bytes containing all variables
 
 	FileDescriptor (byte name[], int nlength, int first_block_no, int file_size){
 		this.name = name;
