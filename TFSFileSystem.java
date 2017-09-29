@@ -194,9 +194,13 @@ public class TFSFileSystem
 		return 0;
 	}
 
+	//tfs_sync method:
+	//	Synchronizes the file system (memory with disk)
 	public static int tfs_sync()
 	{
-		return -1;
+		_tfs_write_pcb();
+		_tfs_write_fat();
+		return 0;
 	}
 
 	//tfs_prrfs method:
@@ -377,7 +381,20 @@ public class TFSFileSystem
 	//	Returns number of bytes written
 	private static int _tfs_write_bytes_fd(int fd, byte[] buf, int length)
 	{
-		return 0;
+		FileDescriptor f = fdt.get(fd); //Create a reference to the FileDescriptor
+
+		//Finding the right block that the FilePointer points to
+		int blockNo = _tfs_get_block_no_fd(fd, f.filePointer); //Finding location of block using file pointer as the offset
+		int offset = f.filePointer - ((f.filePointer/BLOCK_SIZE)*BLOCK_SIZE); //		//filePointer holds the offset to read from. We minus the amount of bytes in Blocks we skiped
+
+		//Holds block that will be modified
+		byte[] block = new byte[BLOCK_SIZE];
+		_tfs_read_block(blockNo, block); //Reading bytes into buffer
+
+		//Overwriting bytes with new data
+		_tfs_put_bytes_block(block, offset, buf, length);
+
+		return length;
 	}
 
 	//_tfs_get_block_no_fd method:
@@ -445,9 +462,12 @@ public class TFSFileSystem
 		return pcb.freeBlockPointer; //Returns index of free block in disk stored in PCB object
 	}
 
+	//_tfs_return_block_fat method:
+	//	Returns a free block to File Allocation Table
 	private static void _tfs_return_block_fat(int block_no){
-
+		fat.fatTable[block_no] = 0; //0 means the block is free
 	}
+
 	private static int _tfs_attach_block_fat(int start_block_no, int new_block_no){
 		return 0;
 	}
