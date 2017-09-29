@@ -466,6 +466,7 @@ public class TFSFileSystem
 	//	Returns a free block to File Allocation Table
 	private static void _tfs_return_block_fat(int block_no){
 		fat.fatTable[block_no] = 0; //0 means the block is free
+		return;
 	}
 
 	private static int _tfs_attach_block_fat(int start_block_no, int new_block_no){
