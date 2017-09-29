@@ -469,7 +469,22 @@ public class TFSFileSystem
 		return;
 	}
 
+	//_tfs_attach_block_fat method:
+	//	Attach new block to the end of the file (on FAT)
 	private static int _tfs_attach_block_fat(int start_block_no, int new_block_no){
+		int a = fat.fatTable[start_block_no];
+
+		if (a == 0){
+			return -1;
+		}
+		//Keep checking until we find -1 which means end of file
+		while (fat.fatTable[a] != -1){
+			a = fat.fatTable[a];
+		}
+		//Attach new block to the end of the file
+		fat.fatTable[a] = new_block_no;
+		fat.fatTable[new_block_no] = -1; //Set new block to point to end of file in fat
+
 		return 0;
 	}
 
