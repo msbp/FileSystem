@@ -334,8 +334,13 @@ public class TFSFileSystem
 
 	//_tfs_seek_fd method:
 	//	Change the file pointer to offset
+	//	NOTE: offset variable is based on indexes. These indexes go from 0 to n-1.
  	private static int _tfs_seek_fd(int fd, int offset)
  	{
+		//If offset is not valid, return error
+		if (offset < 0){
+			return -1;
+		}
 		fdt.get(fd).filePointer = offset;
  		return 0;
  	}
@@ -350,16 +355,45 @@ public class TFSFileSystem
 
 	//_tfs_read_bytes_fd method:
 	//	Read up to length bytes from FileDescriptor starting at offset
+	//	Returns number of bytes read
 	private static int _tfs_read_bytes_fd(int fd, byte[] buf, int length)
 	{
 		FileDescriptor f = fdt.get(fd);
+		byte[] block = new byte[length]; //This is where the bytes will be temporarily stored
+
 		buf = _tfs_get_bytes_block(f.fdBlock, f.filePointer, length); //Read bytes from FileDescriptor bytes from offset to length of buffer
 		return buf.length;
 	}
 
+	//_tfs_write_bytes_fd method:
+	//	Write up to length bytes from buffer to file FileDescriptor points to
+	//	Returns number of bytes written
+	private static int _tfs_write_bytes_fd(int fd, byte[] buf, int length)
+	{
+		return 0;
+	}
+
+	//_tfs_get_block_no_fd method:
+	//	Block number for the offset in the file represented by fd (Check FAT table for correct block)
  	private static int _tfs_get_block_no_fd(int fd, int offset)
  	{
- 		return -1;
+		FileDescriptor f = fdt.get(fd);
+		int blockNo = f.startingBlock; //Initializing to where file is located
+		int blockJumpCount = 0; //Number of blocks ahead of startingBlock (# of hops)
+		if (offset > (BLOCK_SIZE-1)){ //BLOCK_SIZE-1 because offset is a list index from 0 to n-1
+			blockJumpCount += (offset/BLOCK_SIZE);
+		}
+
+		//Retrieve the block that the file would be located at
+		for (int i = 0; i < blockJumpCount; i++){
+			blockNo = fat.fatTable[blockNo]; //Updates block number to next block
+			//Check for two error cases
+			if (blockNo == -1 || blockNo == 0){
+				return -1; //Returns error
+			}
+		}
+
+ 		return blockNo; //If there is no error, return block number
  	}
 
 	//_tfs_write_pcb method:
