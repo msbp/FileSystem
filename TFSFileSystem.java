@@ -358,10 +358,17 @@ public class TFSFileSystem
 	//	Returns number of bytes read
 	private static int _tfs_read_bytes_fd(int fd, byte[] buf, int length)
 	{
-		FileDescriptor f = fdt.get(fd);
-		byte[] block = new byte[length]; //This is where the bytes will be temporarily stored
+		FileDescriptor f = fdt.get(fd); //Create a reference to the FileDescriptor
+		byte[] block = new byte[BLOCK_SIZE]; //This is where the bytes will be temporarily stored
 
-		buf = _tfs_get_bytes_block(f.fdBlock, f.filePointer, length); //Read bytes from FileDescriptor bytes from offset to length of buffer
+		//Finding the right block that the filePointer points to
+		int blockNo = _tfs_get_block_no_fd(fd, f.filePointer); //Finding location of block using file pointer as the offset
+		_tfs_read_block(blockNo, block); //Read (copy) the block number found above
+
+		//filePointer holds the offset to read from. We minus the amount of bytes in Blocks we skiped
+		//This is done because we already retrieved the block equivalent to that offset just above
+		buf = _tfs_get_bytes_block(block, f.filePointer - ((f.filePointer/BLOCK_SIZE)*BLOCK_SIZE), length); //Pass byte array into buffer using the block where filepointer points to, offset, and length of buffer
+
 		return buf.length;
 	}
 
@@ -668,8 +675,6 @@ class FileDescriptor{
 	int startingBlock;
 	int filePointer; //This is the offset where the process reads from or writes to
 	int fileSize; //Total size in bytes
-
-	byte[] fdBlock; //Block of bytes containing all variables
 
 	FileDescriptor (byte name[], int nlength, int first_block_no, int file_size){
 		this.name = name;
