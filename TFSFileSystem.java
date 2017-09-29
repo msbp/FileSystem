@@ -25,6 +25,12 @@
 				 own and then appended to its parent directory using an in-class method.
 				 The root directory initialized in-memory in tfs_mkfs will be written to
 				 to the disk as a byte array.
+		FDT: The File Descriptor Table was implemented as a linked list of
+				 FileDescriptor objects. As these objects are created, they are appended
+				 to the linked list and given an index on the list. This index is the
+				 reference fd number that the methods use to reference a file
+				 descriptor. The FileDescriptor object contains many attributes about
+				 an opened file in the system.
 */
 
 
@@ -60,55 +66,6 @@ public class TFSFileSystem
 
 		 System.out.println(tru.tfs_prmfs());
 
-		//  tru._tfs_write_pcb();
-		//  tru._tfs_read_pcb();
-		//  tru._tfs_read_fat();
-
-		//System.out.println("PCB SAYS FAT BLOCKS ARE: "+pcb.numFatBlocks + "\nFAT SAYS FAT BLOCKS ARE: "+ fat.numBlocks);
-		//  //Reading bytes from memory
-		//  byte[] test = new byte[BLOCK_SIZE];
-		//  for (int i = 2; i < fat.numBlocks+2; i++){
-		// 	 disk.tfs_dio_read_block(i, test);
-		// 	 System.out.print("BLOCK "+i + ": ");
-		// 	 for (int j = 0; j < BLOCK_SIZE; j++){
-		// 		 System.out.print(test[j]);
-		// 	 }
-		// 	 System.out.println();
-		//  }
-
-		//  //TEST reading from Disk
-		//  //Try reading FAT TABLE from file
-		//  byte[] tester = new byte[fat.fatBlocks.length];
-		//  disk.tfs_dio_read_block(2, tester);
-		//  System.out.println("\n\n\n\n\nTHIS IS THE DATA IN BYTES:");
-		//  int tmp = 0;
-		//  for (int i = 0; i < tester.length; i++, tmp++){
-		// 	 if (tmp == 4){
-		// 		 System.out.print("\t");
-		// 		 tmp = 0;
-		// 	 }
-		// 	 System.out.print(tester[i]);
-		//  }
-		//  //READING DATA FROM BYTES TO integers
-		//  System.out.println("\n\n\n\n\nTHIS IS THE DATA IN INTEGERS:");
-		//  tmp = 0;
-		//  int result;
-		//  for (int i = 0; i < tester.length; i++, tmp++){
-		// 	 result = (((tester[i]& 0xFF) << 24)|((tester[i+1] & 0xFF) << 16)|((tester[i+2] & 0xFF) << 8)|(tester[i+3] & 0xFF));
-		// 	 System.out.print(result + "\t");
-		// 	 result = 0;
-		// 	 i += 3;
-		// 	 System.out.println("I IS EQUAL TO: "+ i);
-		//  }
-		//
-		// //  Reading PCB
-		// System.out.println("\n\nPCB:");
-		//  byte[] read = new byte[BLOCK_SIZE];
-		//  disk.tfs_dio_read_block(1, read);
-		//  for (int i = 0; i < read.length; i++){
-		// 	 System.out.print(read[i]);
-		//  }
-		//  System.out.println();
 	 }
 
 	 /*
@@ -143,13 +100,6 @@ public class TFSFileSystem
 		fat = new FAT(pcb.fatSize, BLOCK_SIZE);
 		//initialize root Directory object in memory
 		root = new Directory("/");
-
-		// //Testing purposes:
-		//---------- TEST FAT
-		// fat.populateTest();
-		// fat.populateBlocks();
-		//System.out.println(tfs_prrfs());
-		//----------
 
 		//Writing PCB and FAT from memory to disk
 		_tfs_write_pcb();
@@ -213,10 +163,7 @@ public class TFSFileSystem
 		byte[] pcbBuffer = new byte[BLOCK_SIZE]; //Buffer for pcb block - PCB is one block in length
 		byte[] fatBuffer = new byte[BLOCK_SIZE]; //Buffer for fat of length of fat
 
-		// disk.tfs_dio_read_block(1, pcbBuffer); //Reading pcb block into Buffer
-		// disk.tfs_dio_read_block(2, fatBuffer); //Reading FAT blocks into buffer
 		_tfs_read_block(1, pcbBuffer);
-		//_tfs_read_block(2, fatBuffer);
 
 		//Saving root pointer from memory retrieved pcb buffer into variable
 		int fatSize = (((pcbBuffer[0] & 0xFF) << 24)|((pcbBuffer[1] & 0xFF) << 16)|((pcbBuffer[2] & 0xFF) << 8)|(pcbBuffer[3] & 0xFF))*4/128;
@@ -541,8 +488,6 @@ public class TFSFileSystem
 			block[i] = buf[i-offset];
 		}
 	}
-
-
 
 }
 
