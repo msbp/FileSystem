@@ -42,10 +42,14 @@ public class TFSShell extends Thread
 					mkfs();
 				else if (cmd.equals("mount"))
 					mount();
+				else if (cmd.equals("unmount"))
+					unmount();
 				else if (cmd.equals("sync"))
 					sync();
 				else if (cmd.equals("prrfs"))
 					prrfs();
+				else if (cmd.equals("prmfs"))
+					prmfs();
 
 				else if (cmd.equals("mkdir")) {
 					if (stokenizer.hasMoreTokens()) {
@@ -201,7 +205,7 @@ public class TFSShell extends Thread
 	//	Unmounts file system
 	void unmount()
 	{
-		fs.tfs_unmount();
+		fs.tfs_umount();
 		return;
 	}
 
@@ -209,7 +213,7 @@ public class TFSShell extends Thread
 	//	Syncs file system
 	void sync()
 	{
-		fs.sync();
+		fs.tfs_sync();
 		return;
 	}
 
