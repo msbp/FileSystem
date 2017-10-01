@@ -297,7 +297,8 @@ public class TFSFileSystem
  	}
 
 	//_tfs_close_fd method:
-	//	Remove FileDescriptor of index fd from File Descriptor Table
+	//	Remove FileDescriptor of index fd from File Descriptor Table.
+	//	Updates the entry for the file/directory in the parent directory
  	private static void _tfs_close_fd(int fd)
  	{
 		fdt.remove(fd); //Removes FileDescriptor object from FDT
@@ -631,11 +632,25 @@ class FAT{
 
 //Directory Class:
 //	Implemented as a linked list
+// Each directory entry will take up 28 bytes
 class Directory {
 	//Creating and initializing linked list
 	List<String> list = new LinkedList<String>();
 	//Creating bytes blocks to store directory in disk
 	byte[] directoryBlocks;
+
+	//-------------------- These should be once only --------------------
+	int noEntries; //Total number of entries ---- Only first block?
+	int parentBlockNo; //The first block number of the parent dir
+
+	byte isDirectory; //0: subdirectory, 1: file
+	byte nLength; //name length
+	byte reserved1;
+	byte reserved2;
+	byte[] name = new byte[16]; //not a full path
+	int firstBlockNo; // The first block number
+	int size; // The size of the file or subdirectory
+
 
 	//Object constructor
 	Directory(String name){
