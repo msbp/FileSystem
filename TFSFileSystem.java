@@ -213,23 +213,34 @@ public class TFSFileSystem
 		return -1;
 	}
 
+	//tfs_read method:
+	//	Read blength bytes in buf from file_id
+	//	Returns the number of bytes read
 	public static int tfs_read(int file_id, byte[] buf, int blength)
 	{
-		return -1;
+		return _tfs_read_bytes_fd(file_id, buf, blength);
 	}
 
+	//tfs_write method:
+	//	Writes blength bytes of buf in memory
+	//	Returns the number of bytes written
 	public static int tfs_write(int file_id, byte[] buf, int blength)
 	{
-		return -1;
+		return _tfs_write_bytes_fd(file_id, buf, blength);
 	}
 
+	//tfs_seek method:
+	//	returns new file pointer
 	public static int tfs_seek(int file_id, int position)
 	{
-		return -1;
+		return _tfs_seek_fd(file_id, position);
 	}
 
+	//tfs_close method:
+	//	Removes the file descriptor from File Descriptor Table (FDT)
 	public static void tfs_close(int file_id)
 	{
+		_tfs_close_fd(file_id);
 		return;
 	}
 
@@ -285,15 +296,16 @@ public class TFSFileSystem
 
 	//_tfs_seek_fd method:
 	//	Change the file pointer to offset
+	//	Returns the file pointer
 	//	NOTE: offset variable is based on indexes. These indexes go from 0 to n-1.
  	private static int _tfs_seek_fd(int fd, int offset)
  	{
 		//If offset is not valid, return error
 		if (offset < 0){
-			return -1;
+			return -1; //-1 is error
 		}
 		fdt.get(fd).filePointer = offset;
- 		return 0;
+ 		return fdt.get(fd).filePointer;
  	}
 
 	//_tfs_close_fd method:
