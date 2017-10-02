@@ -210,6 +210,7 @@ public class TFSFileSystem
 
 	public static int tfs_open(byte[] name, int nlength)
 	{
+		//return _tfs_open_fd(name, nlength );
 		return -1;
 	}
 
@@ -244,8 +245,11 @@ public class TFSFileSystem
 		return;
 	}
 
+	//tfs_create method:
+	//	Create a file, name contains full path
 	public static int tfs_create(byte[] name, int nlength)
 	{
+
 		return -1;
 	}
 
