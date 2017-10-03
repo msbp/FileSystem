@@ -273,7 +273,7 @@ public class TFSFileSystem
  	{
 		//Calling TFSDiskInputOuput read method
 		int response = disk.tfs_dio_read_block(block_no, buf);
- 		return response; //Returning reponse from method
+ 		return response; //Returning response from method
  	}
 
  	private static int _tfs_write_block(int block_no, byte buf[])
