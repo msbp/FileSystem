@@ -256,13 +256,21 @@ public class TFSShell extends Thread
 		return;
 	}
 
+	//create method:
+	//	Create an empty file if it does not exits
 	void create(String file)
 	{
+		byte[] name = file.getBytes();
+		fs.tfs_create(name, name.length);
 		return;
 	}
 
+	//rm method:
+	//	Removes a file
 	void rm(String file)
 	{
+		byte[] name = file.getBytes();
+		fs.tfs_delete(name, name.length);
 		return;
 	}
 
