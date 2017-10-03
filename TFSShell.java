@@ -233,13 +233,21 @@ public class TFSShell extends Thread
 		return;
 	}
 
+	//mkdir method:
+	//	Make a directory if one does not exist
 	void mkdir(String directory)
 	{
+		byte[] name = directory.getBytes();
+		fs.tfs_create_dir(name, name.length);
 		return;
 	}
 
+	//rmdir method:
+	//	Remove a directory if it is empty
 	void rmdir(String directory)
 	{
+		byte[] name = directory.getBytes();
+		fs.tfs_delete_dir(name, name.length);
 		return;
 	}
 
@@ -248,13 +256,21 @@ public class TFSShell extends Thread
 		return;
 	}
 
+	//create method:
+	//	Create an empty file if it does not exits
 	void create(String file)
 	{
+		byte[] name = file.getBytes();
+		fs.tfs_create(name, name.length);
 		return;
 	}
 
+	//rm method:
+	//	Removes a file
 	void rm(String file)
 	{
+		byte[] name = file.getBytes();
+		fs.tfs_delete(name, name.length);
 		return;
 	}
 
