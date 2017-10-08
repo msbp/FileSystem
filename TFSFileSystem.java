@@ -313,9 +313,58 @@ public class TFSFileSystem
 	//	Updates the entry for the file/directory in the parent directory
  	private static void _tfs_close_fd(int fd)
  	{
+		FileDescriptor f = fdt.get(fd);
+		//_tfs_update_entry_dir(f.block); //Updates dir entry
+
 		fdt.remove(fd); //Removes FileDescriptor object from FDT
  		return;
  	}
+
+	//_tfs_search_dir method:
+	//	Returns the first block number of the parent directory in which name exists
+	public static int _tfs_search_dir(byte[] name, int nlength){
+		String str = new String(name); //Creating a string from name
+		String[] path = str.split("/"); //Creating a string array with the path
+
+		//If first character is not root then we don't have full path
+    if (str.charAt(0) != '/'){
+      return -1;
+    }
+
+		Directory d = root; //Points to root initially
+		//Iterate through path passed in as parameter
+		for (int i = 1; i < path.length; i++){
+			//Calling the helper function on root first and keeps going down path
+			d = helper_tfs_search_dir(path[i].getBytes(), d);
+		}
+		if (d == null){
+			return -1;
+		}
+		return d.parentBlockNo;
+	}
+	//helper_tfs_search_dir method:
+	//	This is a helper method used by _tfs_search_dir method to find directory
+	public static Directory helper_tfs_search_dir(byte[] name, Directory d){
+		for (int i = 0; i < d.dList.size(); i++){
+			if (compareByteArray(d.dList.get(i).name, name)){
+				return d.dList.get(i);
+			}
+		}
+		return null; //Returns null if the path was not found
+	}
+	//compareByteArray method:
+  //  Used to quickly compare byte arrays
+  public static boolean compareByteArray(byte[] a, byte[] b){
+    if (a.length != b.length){
+      return false;
+    }
+    for (int i = 0; i < a.length; i++){
+      if (a[i] != b[i]){
+        return false;
+      }
+    }
+    return true;
+  }
 
 	//_tfs_read_bytes_fd method:
 	//	Read up to length bytes from FileDescriptor starting at offset
@@ -615,31 +664,6 @@ class FAT{
 			}
 		}
 	}
-//Switched implementation from 1D array to 2D array. These methods don't work anymore
-// 	//Populate fatTable method - Testing purposes
-// 	public void populateTest(){
-// 			for (int i = 0; i < fatTable.length; i++){
-// 				fatTable[i] = 21696;
-// 			}
-// 	}
-// 	//Create FAT Blocks method - Testing purposes
-// 	public void populateBlocks(){
-// 		int a;
-// 		byte[] b = new byte[4];
-// 		int index = 0;
-//
-// 		for (int i = 0; i < fatTable.length; i++){
-// 			a = fatTable[i];
-// 			b[3] = (byte)a;
-// 			b[2] = (byte)(a >> 8);
-// 			b[1] = (byte)(a >> 16);
-// 			b[0] = (byte)(a >> 24);
-//
-// 			for (int j = 0; j < b.length; j++){
-// 				//fatBlocks[(i*4) + j] = b[j];
-// 			}
-// 		}
-// 	}
 }
 
 //Directory Class:
@@ -647,13 +671,17 @@ class FAT{
 // Each directory entry will take up 28 bytes
 class Directory {
 	//Creating and initializing linked list
-	List<String> list = new LinkedList<String>();
+	//Each Directory object can have a lower level of directory. This will be
+	// a list for each object.
+	List<Directory> dList = new LinkedList<Directory>();
+
+
 	//Creating bytes blocks to store directory in disk
 	byte[] directoryBlocks;
 
 	//-------------------- These should be once only --------------------
-	int noEntries; //Total number of entries ---- Only first block?
-	int parentBlockNo; //The first block number of the parent dir
+	static int noEntries; //Total number of entries ---- Only first block?
+	static int parentBlockNo; //The first block number of the parent dir
 
 	byte isDirectory; //0: subdirectory, 1: file
 	byte nLength; //name length
@@ -666,12 +694,14 @@ class Directory {
 
 	//Object constructor
 	Directory(String name){
-		list.add(name); //Adds passed in String to list
+		this.name = name.getBytes(); //Setting name value for object
 	}
+
 	//Used when appending subdirectories to parent directories
-	public void append(List<String> l){
-		list.addAll(l);
+	public void attach(Directory d){
+		dList.add(d); //Add Directory object to the list
 	}
+
 }
 
 //File Descriptor Class
