@@ -370,8 +370,54 @@ public class TFSFileSystem
     return true;
   }
 
-	//findDirectoryByParentBlock method:
-	//	Returns the block in which the first block is block_no
+	//_tfs_get_entry_dir method:
+	//	Get the entry for name from the directory of which the first block number
+	//	is block_no
+	//	Returns -1 if name is not found, otherwise returns entry number in dir
+	public static int _tfs_get_entry_dir(int block_no, byte[] name, byte nlength, byte[] is_directory, int[] fbn, int[] size){
+		//Creating buffer and reading block into it
+		byte[] buffer = new byte[BLOCK_SIZE];
+		_tfs_read_block(block_no, buffer);
+
+		byte[] currName = new byte[16]; //currName holds name of entry we are looking at
+		int entry = -1; //Keeps track of which entry has what we are looking for (0-3)
+
+		//According to Directory description, bytes 8 to 23 (*4) is = to name
+		int tracker = 0; //Tracker points to currName index
+		//Iterate through 4 entries in the block
+		for (int i = 0; i < 4; i++){
+			//Copy name into currName byte array
+			for (int j = 8 + (i*32); j < 24 + (i*32); j++, tracker++){
+				currName[tracker] = buffer[j];
+			}
+			//Compare currName to name - Converting bytes to string for comparison
+			String tmp = new String(currName);
+			if (tmp.equals(new String(name))){
+				entry = i; //Set entry value if name is found
+				break; //Break out of loop
+			}
+			tracker = 0; //Reset tracker
+		}
+
+		//If entry was not found return -1
+		if (entry == -1){
+			return -1;
+		}
+
+		//Iterating through entry and retrieving data. Each entry is 32 bytes in length
+		//We add 1 because entries are 0-3
+
+		//Retrieving is_directory
+		is_directory[0] = buffer[4+(entry*32)];
+		//Retrieving first block number (same as current block number)
+		fbn[0] = block_no;
+		//Retrieving size (converting 4 bytes into int)
+		int s = (((buffer[28+(entry*32)] & 0xFF) << 24)|((buffer[29+(entry*32)] & 0xFF) << 16)|((buffer[30+(entry*32)] & 0xFF) << 8)|(buffer[31+(entry*32)] & 0xFF));
+		size[0] = s;
+
+		return entry;
+	}
+
 	//_tfs_create_entry_dir method:
 	//	Creates an entry for name in the directory
 	public static void _tfs_create_entry_dir(int block_no, byte[] name, byte[] nlength, byte[] is_directory, int fbn, int size){
@@ -682,7 +728,13 @@ class FAT{
 
 //Directory Class:
 //	Implemented as a linked list
-// Each directory entry will take up 28 bytes
+//	Each directory entry will take up 32 bytes (128/32 = 4 entries per block)
+//	Structure of each entry (by index)(to is inclusive):
+//
+//		Byte 0 to 3 = parentBlockNo, byte 4 = isDirectory, byte 5 = nLength,
+//		byte 6 to 7 = reserved, byte 8 to 23 = name, byte 24 to 27 = firstBlockNo,
+//		byte 28 to 31 = size
+//
 class Directory {
 	//Creating and initializing linked list
 	//Each Directory object can have a lower level of directory. This will be
@@ -694,8 +746,7 @@ class Directory {
 	byte[] directoryBlocks;
 
 	//-------------------- These should be once only --------------------
-	static int noEntries; //Total number of entries ---- Only first block?
-
+	//int noEntries; //Total number of entries
 	int parentBlockNo; //The first block number of the parent dir
 
 	byte isDirectory; //0: subdirectory, 1: file
