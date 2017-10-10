@@ -271,7 +271,6 @@ public class TFSShell extends Thread
 		}
 		System.out.println("\n");
 
-
 		return;
 	}
 
@@ -295,6 +294,21 @@ public class TFSShell extends Thread
 
 	void print(String file, int position, int number)
 	{
+		byte[] name = file.getBytes();
+		int fd = fs.tfs_open(name, name.length); //Opening fd entry
+		byte[] buffer = new byte[number*2]; //Each char is 2 bytes
+
+		System.out.println("\nRead from file:");
+
+		int bytesRead = fs.tfs_read(fd, buffer, buffer.length);
+		byte[] tmp = new byte[2];
+		for (int i = 0; i < bytesRead; i = i+2){
+			tmp[0] = buffer[i];
+			tmp[1] = buffer[i+1];
+			System.out.print(new String(tmp));
+		}
+
+		System.out.println("\n");
 		return;
 	}
 
