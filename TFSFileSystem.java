@@ -366,6 +366,16 @@ public class TFSFileSystem
     return true;
   }
 
+	//findDirectoryByParentBlock method:
+	//	Returns the block in which the first block is block_no
+	//_tfs_create_entry_dir method:
+	//	Creates an entry for name in the directory
+	public static void _tfs_create_entry_dir(int block_no, byte[] name, byte[] nlength, byte[] is_directory, int fbn, int size){
+
+
+
+	}
+
 	//_tfs_read_bytes_fd method:
 	//	Read up to length bytes from FileDescriptor starting at offset
 	//	Returns number of bytes read
@@ -681,7 +691,8 @@ class Directory {
 
 	//-------------------- These should be once only --------------------
 	static int noEntries; //Total number of entries ---- Only first block?
-	static int parentBlockNo; //The first block number of the parent dir
+
+	int parentBlockNo; //The first block number of the parent dir
 
 	byte isDirectory; //0: subdirectory, 1: file
 	byte nLength; //name length
