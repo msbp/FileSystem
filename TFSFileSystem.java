@@ -407,9 +407,6 @@ public class TFSFileSystem
 			return -1;
 		}
 
-		//Iterating through entry and retrieving data. Each entry is 32 bytes in length
-		//We add 1 because entries are 0-3
-
 		//Retrieving is_directory
 		is_directory[0] = buffer[4+(entry*32)];
 		//Retrieving first block number (same as current block number)
@@ -456,6 +453,47 @@ public class TFSFileSystem
 		}
 		//Write buffer back to disk
 		_tfs_write_block(block_no, buffer);
+
+		return entry;
+	}
+
+	//_tfs_delete_entry method:
+	//	Deletes the entry for name from the directory of which first block number
+	//	is block_no
+	public static int _tfs_delete_entry(int block_no, byte[] name, byte nlength){
+		//Reading directory entries
+		byte[] buffer = new byte[BLOCK_SIZE];
+		_tfs_read_block(block_no, buffer);
+
+		byte[] currName = new byte[16]; //currName holds name of entry we are looking at
+		int entry = -1; //Keeps track of which entry has what we are looking for (0-3)
+
+		//According to Directory description, bytes 8 to 23 (*4) is = to name
+		int tracker = 0; //Tracker points to currName index
+		//Iterate through 4 entries in the block
+		for (int i = 0; i < 4; i++){
+			//Copy name into currName byte array
+			for (int j = 8 + (i*32); j < 24 + (i*32); j++, tracker++){
+				currName[tracker] = buffer[j];
+			}
+			//Compare currName to name - Converting bytes to string for comparison
+			String tmp = new String(currName);
+			if (tmp.equals(new String(name))){
+				entry = i; //Set entry value if name is found
+				break; //Break out of loop
+			}
+			tracker = 0; //Reset tracker
+		}
+
+		//If entry was not found return -1
+		if (entry == -1){
+			return -1;
+		}
+
+		//Removing the directory entry
+		for (int i = entry*32; i < (entry*32)+32; i++){
+			buffer[i] = (byte)0;
+		}
 
 		return entry;
 	}
