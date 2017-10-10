@@ -99,7 +99,10 @@ public class TFSFileSystem
 		//initialize FAT object in memory
 		fat = new FAT(pcb.fatSize, BLOCK_SIZE);
 		//initialize root Directory object in memory
-		root = new Directory("/");
+		String str = "/";
+		byte[] b_str = str.getBytes();
+		byte b_str_length = (byte)b_str.length;
+		root = new Directory(b_str, b_str_length, (byte)0, 68, 32); //Starting at block 68 (root)
 
 		//Writing PCB and FAT from memory to disk
 		_tfs_write_pcb();
@@ -420,10 +423,41 @@ public class TFSFileSystem
 
 	//_tfs_create_entry_dir method:
 	//	Creates an entry for name in the directory
-	public static void _tfs_create_entry_dir(int block_no, byte[] name, byte[] nlength, byte[] is_directory, int fbn, int size){
+	//	Returns -1 if spot is not available for entry in this directory
+	public static int _tfs_create_entry_dir(int block_no, byte[] name, byte nlength, byte is_directory, int fbn, int size){
 
+		//Creating new entry
+		Directory d = new Directory(name, nlength, is_directory, fbn, size);
+		//Directory(byte[] name, byte nlength, byte is_directory, int fbn, int size){
 
+		byte[] buffer = new byte[BLOCK_SIZE];
+		_tfs_read_block(block_no, buffer);
 
+		int entry = -1; //Initial entry value (0-3)
+
+		//See if entry spot is available - If parentBlockNo points is 0 then entry is empty
+		//0 is default value for when creating block
+		for (int i = 0; i < 4; i++){
+			int check = (((buffer[1+(i*32)] & 0xFF) << 24)|((buffer[0+(i*32)] & 0xFF) << 16)|((buffer[2+(i*32)] & 0xFF) << 8)|(buffer[3+(i*32)] & 0xFF));
+			if (check == 0){
+				entry = i;
+				break;
+			}
+		}
+
+		//return -1 if entry spot is not available
+		if (entry == -1){
+			return -1;
+		}
+
+		//Rewriting buffer so we can then write buffer to disk
+		for (int i = entry*32; i < (entry*32)+32; i++){
+			buffer[i] = d.dirBlock[i-(entry*32)];
+		}
+		//Write buffer back to disk
+		_tfs_write_block(block_no, buffer);
+
+		return entry;
 	}
 
 	//_tfs_read_bytes_fd method:
@@ -742,8 +776,8 @@ class Directory {
 	List<Directory> dList = new LinkedList<Directory>();
 
 
-	//Creating bytes blocks to store directory in disk
-	byte[] directoryBlocks;
+	//Creating byte array block to store directory in disk
+	byte[] dirBlock = new byte[32];
 
 	//-------------------- These should be once only --------------------
 	//int noEntries; //Total number of entries
@@ -759,8 +793,14 @@ class Directory {
 
 
 	//Object constructor
-	Directory(String name){
-		this.name = name.getBytes(); //Setting name value for object
+	Directory(byte[] name, byte nlength, byte is_directory, int fbn, int size){
+		this.name = name;
+		this.nLength = nlength;
+		this.isDirectory = is_directory;
+		this.firstBlockNo = fbn;
+		this.size = size;
+		//Initialize dirBlock
+		this.createDirBlock();
 	}
 
 	//Used when appending subdirectories to parent directories
@@ -768,6 +808,34 @@ class Directory {
 		dList.add(d); //Add Directory object to the list
 	}
 
+	public void createDirBlock(){
+		//Translating ints to byte
+		byte[] pbn = new byte[4];
+		pbn[3] = (byte)parentBlockNo; pbn[2] = (byte)(parentBlockNo>>8); pbn[1] = (byte)(parentBlockNo>>16); pbn[0] = (byte)(parentBlockNo>>24);
+		byte[] fbn = new byte[4];
+		fbn[3] = (byte)firstBlockNo; fbn[2] = (byte)(firstBlockNo>>8); fbn[1] = (byte)(firstBlockNo>>16); fbn[0] = (byte)(firstBlockNo>>24);
+		byte[] s = new byte[4];
+		s[3] = (byte)size; s[2] = (byte)(size>>8); s[1] = (byte)(size>>16); s[0] = (byte)(size>>24);
+
+
+		//Populating directory block to be written to disk
+		for (int i = 0; i < 4; i++){
+			dirBlock[i] = pbn[i];
+		}
+		dirBlock[4] = isDirectory;
+		dirBlock[5] = nLength;
+		dirBlock[6] = reserved1;
+		dirBlock[7] = reserved2;
+		for (int i = 8; i < 24; i++){
+			dirBlock[i] = name[i-8];
+		}
+		for (int i = 24; i < 28; i++){
+			dirBlock[i] = fbn[i-24];
+		}
+		for (int i = 28; i < 32; i++){
+			dirBlock[i] = s[i-28];
+		}
+	}
 }
 
 //File Descriptor Class
