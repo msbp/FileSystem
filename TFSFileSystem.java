@@ -105,7 +105,15 @@ public class TFSFileSystem
 		for (int i = 0; i < b_str.length; i++){
 			n[i] = b_str[i];
 		}
-		root = new Directory(n, (byte)n.length, (byte)0, 68, 32); //Starting at block 68 (root)
+		//Root initialized at block 67
+		root = new Directory(n, (byte)n.length, (byte)0, 67, 32); //Starting at block 68 (root)
+		int freeBlock = fat.findFreeBlock(); //Find new free block
+		//If free block returned -1 then there are not blocks available
+		if (freeBlock == -1){
+			System.out.println("There are no blocks available in FAT.");
+			return -1;
+		}
+		pcb.updateFreeBlockPointer(freeBlock);
 
 		//Writing PCB and FAT from memory to disk
 		_tfs_write_pcb();
@@ -296,10 +304,15 @@ public class TFSFileSystem
 	//_tfs_open_fd method:
 	//	Create a new entry in File Descriptor Table for a file or directory
 	//	Returns file descriptor
- 	private static int _tfs_open_fd(byte name[], int nlength, int first_block_no, int file_size)
+ 	private static int _tfs_open_fd(byte name[], int nlength)
  	{
+		int blockNumber = _tfs_search_dir(name, nlength);
+		byte[] is_directory = new byte[1];
+		int[] fbn = new int[1];
+		int[] size = new int[1];
+		_tfs_get_entry_dir(blockNumber, name, (byte)nlength, is_directory, fbn, size);
 		//Creating File Descriptor object
-		FileDescriptor fd = new FileDescriptor(name, nlength, first_block_no, file_size);
+		FileDescriptor fd = new FileDescriptor(name, nlength, is_directory[0], fbn[0], size[0]);
 		fdt.add(fd); //Adding it to the File Descriptor Table (Implemented as a linked list)
  		return (fdt.size() - 1); //Returning index of file descriptor
  	}
@@ -794,6 +807,13 @@ class PCB{
 		freeBlockPointer = (((pcbBuffer[8] & 0xFF) << 24)|((pcbBuffer[9] & 0xFF) << 16)|((pcbBuffer[10] & 0xFF) << 8)|(pcbBuffer[11] & 0xFF));
 	}
 
+	public void updateFreeBlockPointer(int pointer){
+		freeBlockPointer = pointer;
+		byte[] tmp = new byte[4];
+		tmp[3] = (byte)freeBlockPointer; tmp[2] = (byte)(freeBlockPointer>>8); tmp[1] = (byte)(freeBlockPointer>>16); tmp[0] = (byte)(freeBlockPointer>>24);
+		pcbBlock[8] = tmp[0]; pcbBlock[9] = tmp [1]; pcbBlock[10] = tmp[2]; pcbBlock[11] = tmp[3];
+	}
+
 }
 
 //FAT Class
@@ -854,6 +874,18 @@ class FAT{
 				k++; //Updating our index
 			}
 		}
+	}
+
+	//findFreeBlock method:
+	//	Goes through in memory fat and finds free block - Starting at 67
+	//	Returns -1 if no free blocks are available
+	public int findFreeBlock(){
+		for (int i = 67; i < fatTable.length; i++){
+			if (fatTable[i] == 0){
+				return i;
+			}
+		}
+		return -1; //Returns -1 if no free blocks
 	}
 }
 
@@ -945,8 +977,9 @@ class FileDescriptor{
 	int filePointer; //This is the offset where the process reads from or writes to
 	int fileSize; //Total size in bytes
 
-	FileDescriptor (byte name[], int nlength, int first_block_no, int file_size){
+	FileDescriptor (byte name[], int nlength, byte is_directory, int first_block_no, int file_size){
 		this.name = name;
+		this.isDirectory = is_directory;
 		this.startingBlock = first_block_no;
 		this.fileSize = file_size;
 	}
