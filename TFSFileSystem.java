@@ -289,14 +289,31 @@ public class TFSFileSystem
 		return _tfs_delete_entry(block_no, new_name, (byte)new_name.length);
 	}
 
+	//tfs_create_dir method:
+	// Create a directory, name contains full path
 	public static int tfs_create_dir(byte[] name, int nlength)
 	{
-		return -1;
+		//Retrieving block_no
+		int block_no = _tfs_search_dir(name, nlength);
+		//Retrieving file name from full path
+		String str = new String(name);
+		String[] path = str.split("/");
+		byte[] new_name = path[path.length-1].getBytes();
+		//Creating entry
+		return _tfs_create_entry_dir(block_no, new_name, (byte)new_name.length, (byte)0, block_no, 32);
 	}
 
+	//tfs_delete_dir method:
+	//	Deletes a directory, name contains full path
 	public static int tfs_delete_dir(byte[] name, int nlength)
 	{
-		return -1;
+		int block_no = _tfs_search_dir(name, nlength);
+		//Retrieving file name from full path
+		String str = new String(name);
+		String[] path = str.split("/");
+		byte[] new_name = path[path.length-1].getBytes();
+		//Deleting entry
+		return _tfs_delete_entry(block_no, new_name, (byte)new_name.length);
 	}
 
 
