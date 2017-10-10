@@ -271,9 +271,9 @@ public class TFSFileSystem
 		//Retrieving name not full path
 		String str = new String(name);
 		String[] path = str.split("/");
-		bytes[] new_name = path[path.length-1].getBytes();
+		byte[] new_name = path[path.length-1].getBytes();
 		//Creating entry
-		return _tfs_create_entry_dir(block_no, new_name, new_name.length, (byte)1, block_no, 32);
+		return _tfs_create_entry_dir(block_no, new_name, (byte)new_name.length, (byte)1, block_no, 32);
 	}
 
 	public static int tfs_delete(byte[] name, int nlength)
