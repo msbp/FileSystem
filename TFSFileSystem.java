@@ -324,7 +324,8 @@ public class TFSFileSystem
  	private static void _tfs_close_fd(int fd)
  	{
 		FileDescriptor f = fdt.get(fd);
-		//_tfs_update_entry_dir(f.block); //Updates dir entry
+		//Updates dir entry
+		_tfs_update_entry_dir(f.startingBlock, f.name, (byte)f.name.length, f.isDirectory, f.startingBlock, f.fileSize);
 
 		fdt.remove(fd); //Removes FileDescriptor object from FDT
  		return;
@@ -923,7 +924,6 @@ class Directory {
 		dirBlock[6] = reserved1;
 		dirBlock[7] = reserved2;
 		for (int i = 8; i < 24; i++){
-			System.out.println("i:"+i+"\tdirBlock.length:"+dirBlock.length+"\t");
 			dirBlock[i] = name[i-8];
 		}
 		for (int i = 24; i < 28; i++){
@@ -940,7 +940,7 @@ class Directory {
 class FileDescriptor{
 	//Class variables
 	byte[] name;
-	boolean isDirectory;
+	byte isDirectory;
 	int startingBlock;
 	int filePointer; //This is the offset where the process reads from or writes to
 	int fileSize; //Total size in bytes
@@ -951,7 +951,7 @@ class FileDescriptor{
 		this.fileSize = file_size;
 	}
 
-	FileDescriptor (byte name[], boolean isDirectory, int startingBlock, int filePointer, int fileSize){
+	FileDescriptor (byte name[], byte isDirectory, int startingBlock, int filePointer, int fileSize){
 		this.name = name;
 		this.isDirectory = isDirectory;
 		this.startingBlock = startingBlock;
