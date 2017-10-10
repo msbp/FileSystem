@@ -253,6 +253,25 @@ public class TFSShell extends Thread
 
 	void ls(String directory)
 	{
+		byte[] name = directory.getBytes();
+		int fd = fs.tfs_open(name, name.length); //Opening FD entry
+		byte[] is_directory = new byte[6];
+		byte[] nlength = new byte[6]; //Won't have more than 6 entries
+		byte[][] name_arr = new byte[6][16];
+		int[] first_block_no = new int[6];
+		int[] file_size = new int[6];
+
+		//Number of entries
+		int numEntries = fs.tfs_read_dir(fd, is_directory, nlength, name_arr, first_block_no, file_size);
+
+		System.out.println("\nEntries in directory:");
+		//Iterate and print out entries
+		for (int i = 0; i < numEntries; i++){
+			System.out.println("\t"+ new String(name_arr[i]) + "\t"+file_size[i]+"bytes");
+		}
+		System.out.println("\n");
+
+
 		return;
 	}
 

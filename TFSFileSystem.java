@@ -172,7 +172,7 @@ public class TFSFileSystem
 	}
 
 	//tfs_prrfs method:
-	// Loads PCB and FAT from memory into a buffer.
+	// Loads PCB and FAT from disk into a buffer.
 	// Returns both in a string.
 	public static String tfs_prrfs()
 	{
@@ -213,6 +213,8 @@ public class TFSFileSystem
 		return blocksInDisk;
 	}
 
+	//tfs_prmfs method:
+	//	Writes PCB and FAT from disk to a string that is returned
 	public static String tfs_prmfs()
 	{
 		//Building string to be returned
@@ -226,10 +228,44 @@ public class TFSFileSystem
 		return inMemory;
 	}
 
+	//tfs_open method:
+	//	Opens a file descriptor entry into fdt
 	public static int tfs_open(byte[] name, int nlength)
 	{
 		return _tfs_open_fd(name, nlength );
 	}
+
+	//tfs_read_dir() method:
+	//	Reads directory entries into arrays
+	public static int tfs_read_dir(int fd, byte[] is_directory, byte[] nlength, byte[][] name, int[] first_block_no, int[] file_size){
+		int numEntries = 0;
+		byte[] buffer = new byte[BLOCK_SIZE];
+		tfs_read(fd, buffer, BLOCK_SIZE);
+		for (int entry = 0; entry < 4; entry++){
+			int pbn = (((buffer[0+(entry*32)] & 0xFF) << 24)|((buffer[1+(entry*32)] & 0xFF) << 16)|((buffer[2+(entry*32)] & 0xFF) << 8)|(buffer[3+(entry*32)] & 0xFF));//Retrieving parent block number
+			//If pbn points to 0 then that entry is empty
+			if (pbn == 0){
+				continue; //Skip this iteration
+			}
+			numEntries++; //Other wise, add one to entry counter
+			//Retrieving is_directory
+			is_directory[entry] = buffer[4+(entry*32)];
+			//Retrieving nlength
+			nlength[entry] = buffer[5+(entry*32)];
+			//Retrieving name
+			for (int i = 8+(entry*32); i < (int)nlength[entry]+(entry*32); i++){
+				name[entry][i - (8+(entry*32))] = buffer[i];
+			}
+			//Retrieving first block number
+			int fbn = (((buffer[24+(entry*32)] & 0xFF) << 24)|((buffer[25+(entry*32)] & 0xFF) << 16)|((buffer[26+(entry*32)] & 0xFF) << 8)|(buffer[27+(entry*32)] & 0xFF));
+			first_block_no[entry] = fbn;
+			//Retrieving size
+			int s = (((buffer[28+(entry*32)] & 0xFF) << 24)|((buffer[29+(entry*32)] & 0xFF) << 16)|((buffer[30+(entry*32)] & 0xFF) << 8)|(buffer[31+(entry*32)] & 0xFF));
+			file_size[entry] = s;
+		}
+		return numEntries;
+	}
+
 
 	//tfs_read method:
 	//	Read blength bytes in buf from file_id
