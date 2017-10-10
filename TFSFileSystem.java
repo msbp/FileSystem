@@ -107,6 +107,11 @@ public class TFSFileSystem
 		}
 		//Root initialized at block 67
 		root = new Directory(n, (byte)n.length, (byte)0, 67, 32); //Starting at block 68 (root)
+		//Update FAT since root is on block 67 now
+		fat.fatTable[67] = -1;//Points to -1 since it is also the end of the file
+		//fat.updateFATBlocks();
+		fat.updateBlocksFromTable(67, -1);
+
 		int freeBlock = fat.findFreeBlock(); //Find new free block
 		//If free block returned -1 then there are not blocks available
 		if (freeBlock == -1){
@@ -115,14 +120,13 @@ public class TFSFileSystem
 		}
 		pcb.updateFreeBlockPointer(freeBlock);
 
-		//Writing PCB and FAT from memory to disk
-		_tfs_write_pcb();
 
-		//Write FAT starting at block 2
-		//disk.tfs_dio_write_block(2, fat.fatBlocks); //Writing FAT blocks of bytes to disk
-		for (int i = 2; i < fat.numBlocks+2; i++){
-			_tfs_write_block(i, fat.fatBlocks[i-2]);
-		}
+		//Writing PCB and FAT from memory to disk
+		tfs_sync();
+
+
+		//Writing root directory to disk at block 67
+		_tfs_create_entry_dir(67, root.name, root.nLength, root.isDirectory, root.firstBlockNo, root.size);
 
 		return 0;
 	}
@@ -857,6 +861,17 @@ class FAT{
 		}
 	}
 
+	//update fat from table to blocks
+	public void updateBlocksFromTable(int entry, int value){
+
+		int i = entry/32; //Gives i position in 2D block array
+		int j = (entry-(32*i))*4; //times 4 because each int is 4 bytes
+
+		byte[] tmp = new byte[4];
+		tmp[3] = (byte)value; tmp[2] = (byte)(value>>8); tmp[1] = (byte)(value>>16); tmp[0] = (byte)(value>>24);
+		//Updating blocks
+		fatBlocks[i][j] = tmp[0]; fatBlocks[i][j+1] = tmp[1]; fatBlocks[i][j+2] = tmp[2]; fatBlocks[i][j+3] = tmp[3];
+	}
 	//updateFATBlocks method:
 	//	Updates the FAT Table in memory using bytes from already updated from disk
 	public void updateFATTable(){
