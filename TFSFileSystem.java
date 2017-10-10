@@ -228,8 +228,7 @@ public class TFSFileSystem
 
 	public static int tfs_open(byte[] name, int nlength)
 	{
-		//return _tfs_open_fd(name, nlength );
-		return -1;
+		return _tfs_open_fd(name, nlength );
 	}
 
 	//tfs_read method:
