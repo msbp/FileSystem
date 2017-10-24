@@ -580,7 +580,7 @@ public class TFSFileSystem
 						if (pcb.freeBlockPointer == fbn){
 							int newFreeBlock = fat.findFreeBlock();
 							pcb.updateFreeBlockPointer(newFreeBlock);
-							tfs_sync(); //Sync with disk
+							tfs_sync(); //Sync from memory to disk
 						}
 					}
 					_tfs_put_bytes_block(tmp, (i*32), d.dirBlock, 32); //Adding entry to block
