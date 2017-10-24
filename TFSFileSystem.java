@@ -244,32 +244,51 @@ public class TFSFileSystem
 	//tfs_read_dir() method:
 	//	Reads directory entries into arrays
 	public static int tfs_read_dir(int fd, byte[] is_directory, byte[] nlength, byte[][] name, int[] first_block_no, int[] file_size){
-		int numEntries = 0;
-		byte[] buffer = new byte[BLOCK_SIZE];
-		tfs_read(fd, buffer, BLOCK_SIZE);
-		for (int entry = 0; entry < 4; entry++){
-			int pbn = (((buffer[0+(entry*32)] & 0xFF) << 24)|((buffer[1+(entry*32)] & 0xFF) << 16)|((buffer[2+(entry*32)] & 0xFF) << 8)|(buffer[3+(entry*32)] & 0xFF));//Retrieving parent block number
-			//If pbn points to 0 then that entry is empty
-			if (pbn == 0){
-				continue; //Skip this iteration
+		//Create FileDescriptor object from fd number given
+		FileDescriptor f = fdt.get(fd); //Creating a reference to it
+		byte[] tmp = new byte[BLOCK_SIZE]; //This is where bytes will be temporarily stored
+		byte[] bDir = new byte[32];
+		int entry = f.startingBlock; //This is where the entries are held
+		boolean empty = true;
+		int count = 0;
+
+		while (true){
+			_tfs_read_block(entry, tmp);
+			//Iterate through entries and saving them to array
+			for (int i = 0; i < 4; i++){
+				empty = true; //Reset variable
+				//Get directory entry
+				bDir = _tfs_get_bytes_block(tmp, (i*32), 32);
+
+				//If there is an entry then save it
+				//If it is empty then move to next entry
+				for (int j = 0; j < 32; j++){
+					if (bDir[j] != 0){
+						empty = false; //If we get here, that means the entry is not empty
+					}
+				}
+				if (empty == true){
+					continue; //If entry is empty, go to next entry
+				}
+				//If we get to this part of the code, it means the entry is not empty
+				//is_directory, nlength, name[][], first_block_no[] int, file_size[] int
+				is_directory[count] = bDir[4];
+				nlength[count] = bDir[5];
+				for (int k = 8; k < 24; k++){
+					name[count][k-8] = bDir[k];
+				}
+				first_block_no[count] = (((bDir[24] & 0xFF) << 24)|((bDir[25] & 0xFF) << 16)|((bDir[26] & 0xFF) << 8)|(bDir[27] & 0xFF)); //Retrieve first block number of directory entries
+				file_size[count] = (((bDir[28] & 0xFF) << 24)|((bDir[29] & 0xFF) << 16)|((bDir[30] & 0xFF) << 8)|(bDir[31] & 0xFF)); //Retrieve filesize of directory entries
+
+				count++; //Increment count variable
 			}
-			numEntries++; //Other wise, add one to entry counter
-			//Retrieving is_directory
-			is_directory[entry] = buffer[4+(entry*32)];
-			//Retrieving nlength
-			nlength[entry] = buffer[5+(entry*32)];
-			//Retrieving name
-			for (int i = 8+(entry*32); i < (int)nlength[entry]+(entry*32); i++){
-				name[entry][i - (8+(entry*32))] = buffer[i];
+			int nextBlock = fat.fatTable[entry];
+			if (nextBlock == -1){
+				return count;
 			}
-			//Retrieving first block number
-			int fbn = (((buffer[24+(entry*32)] & 0xFF) << 24)|((buffer[25+(entry*32)] & 0xFF) << 16)|((buffer[26+(entry*32)] & 0xFF) << 8)|(buffer[27+(entry*32)] & 0xFF));
-			first_block_no[entry] = fbn;
-			//Retrieving size
-			int s = (((buffer[28+(entry*32)] & 0xFF) << 24)|((buffer[29+(entry*32)] & 0xFF) << 16)|((buffer[30+(entry*32)] & 0xFF) << 8)|(buffer[31+(entry*32)] & 0xFF));
-			file_size[entry] = s;
+			entry = nextBlock;
 		}
-		return numEntries;
+
 	}
 
 
