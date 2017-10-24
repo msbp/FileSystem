@@ -618,7 +618,6 @@ public class TFSFileSystem
 		byte[] bDir = new byte[32];
 		byte[] n = new byte[16];
 
-
 		String strName = new String(name); //Creating a String from byte[] name
 
 		//Check for the file in directory
