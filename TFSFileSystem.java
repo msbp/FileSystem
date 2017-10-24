@@ -106,7 +106,13 @@ public class TFSFileSystem
 			n[i] = b_str[i];
 		}
 		//Root initialized at block 67
-		root = new Directory(n, (byte)n.length, (byte)0, 67, 32); //Starting at block 68 (root)
+		root = new Directory(n, (byte)n.length, (byte)0, 67, 0); //Starting at block 68 (root) Size = 0 because it is empty at beginning
+		//Write the directory to disk
+		byte[] tmp = new byte[BLOCK_SIZE];
+		_tfs_read_block(67, tmp);
+		_tfs_put_bytes_block(tmp, 0, root.dirBlock, root.dirBlock.length);
+
+
 		//Update FAT since root is on block 67 now
 		fat.fatTable[67] = -1;//Points to -1 since it is also the end of the file
 		//fat.updateFATBlocks();
@@ -419,46 +425,97 @@ public class TFSFileSystem
 	public static int _tfs_search_dir(byte[] name, int nlength){
 		String str = new String(name); //Creating a string from name
 		String[] path = str.split("/"); //Creating a string array with the path
-
 		//If first character is not root then we don't have full path
     if (str.charAt(0) != '/'){
       return -1;
     }
 
-		Directory d = root; //Points to root initially
-		//Iterate through path passed in as parameter
-		for (int i = 1; i < path.length; i++){
-			//Calling the helper function on root first and keeps going down path
-			d = helper_tfs_search_dir(path[i].getBytes(), d);
-		}
-		if (d == null){
-			return -1;
-		}
-		return d.parentBlockNo;
-	}
-	//helper_tfs_search_dir method:
-	//	This is a helper method used by _tfs_search_dir method to find directory
-	public static Directory helper_tfs_search_dir(byte[] name, Directory d){
-		for (int i = 0; i < d.dList.size(); i++){
-			if (compareByteArray(d.dList.get(i).name, name)){
-				return d.dList.get(i);
+		//Find block that root belongs to => Root is located on block 67
+		//Retriever block 67
+		byte[] bDir = new byte[32]; //directory entry holder
+		byte[] tmp = new byte[BLOCK_SIZE]; //tmp block holder
+		byte[] n = new byte[16]; //name holder
+
+		int currName = 1;
+		boolean found = false;
+
+		//Reads root, as we are always starting at root
+		int entry = 67;
+		_tfs_read_block(entry, tmp);
+		bDir = _tfs_get_bytes_block(tmp, 0, 32);
+		//Retrieving size of directory (size of root right now)
+		int sizeOfDir = (((bDir[28] & 0xFF) << 24)|((bDir[29] & 0xFF) << 16)|((bDir[30] & 0xFF) << 8)|(bDir[31] & 0xFF));
+		sizeOfDir = sizeOfDir/BLOCK_SIZE; //Amount of entries in each directory
+		//Retrieving first block number of root directory
+		int firstBlockNo = (((bDir[24] & 0xFF) << 24)|((bDir[25] & 0xFF) << 16)|((bDir[26] & 0xFF) << 8)|(bDir[27] & 0xFF)); //Retrieve first block number of directory entries
+
+		//Reading root directory items
+		_tfs_read_block(firstBlockNo, tmp);
+
+		while (true) {
+			found = false; //Setting false variable to false
+			//Iterate through
+			for (int i = 0, secondI = 0; i < sizeOfDir; i++, secondI++){
+				//If we read 4 entries already, we need to look at the following block that contains the rest of directory entries
+				if (i%4 == 0){
+					int nextBlock = fat.fatTable[entry];
+					entry = nextBlock;
+					_tfs_read_block(nextBlock, tmp);
+					secondI = 0;
+				}
+				//Get the entry
+				bDir = _tfs_get_bytes_block(tmp, (secondI*32), 32);
+
+				//Compare the names
+				for (int j = 8; j < 24; j++){
+					n[j-8] = bDir[j];
+				}
+				String strName = new String(n);
+				if (strName.equals(path[currName])){
+					//If we are at the end of the path and we are at the last entry then return the parent block
+					if (path.length-1 == currName){
+						found = true;
+						return (((bDir[0] & 0xFF) << 24)|((bDir[1] & 0xFF) << 16)|((bDir[2] & 0xFF) << 8)|(bDir[3] & 0xFF)); //Retrieve parent block number of directory entry
+					}
+					found = true;
+					currName++;
+					sizeOfDir = (((bDir[28] & 0xFF) << 24)|((bDir[29] & 0xFF) << 16)|((bDir[30] & 0xFF) << 8)|(bDir[31] & 0xFF));
+					firstBlockNo = (((bDir[24] & 0xFF) << 24)|((bDir[25] & 0xFF) << 16)|((bDir[26] & 0xFF) << 8)|(bDir[27] & 0xFF)); //Retrieve first block number of directory entries
+					_tfs_read_block(firstBlockNo, tmp); //Reading new block
+					break; //Break out of first loop and look into next directory
+				}
 			}
+			//If we arrive at the end of the loop, we hav
+			if (found == false){
+				return -1;
+			}
+
 		}
-		return null; //Returns null if the path was not found
+
 	}
+	// //helper_tfs_search_dir method:
+	// //	This is a helper method used by _tfs_search_dir method to find directory
+	// public static Directory helper_tfs_search_dir(byte[] name, Directory d){
+	// 	for (int i = 0; i < d.dList.size(); i++){
+	// 		if (compareByteArray(d.dList.get(i).name, name)){
+	// 			return d.dList.get(i);
+	// 		}
+	// 	}
+	// 	return null; //Returns null if the path was not found
+	// }
 	//compareByteArray method:
   //  Used to quickly compare byte arrays
-  public static boolean compareByteArray(byte[] a, byte[] b){
-    if (a.length != b.length){
-      return false;
-    }
-    for (int i = 0; i < a.length; i++){
-      if (a[i] != b[i]){
-        return false;
-      }
-    }
-    return true;
-  }
+  // public static boolean compareByteArray(byte[] a, byte[] b){
+  //   if (a.length != b.length){
+  //     return false;
+  //   }
+  //   for (int i = 0; i < a.length; i++){
+  //     if (a[i] != b[i]){
+  //       return false;
+  //     }
+  //   }
+  //   return true;
+  // }
 
 	//_tfs_get_entry_dir method:
 	//	Get the entry for name from the directory of which the first block number
@@ -1008,7 +1065,7 @@ class Directory {
 		this.nLength = nlength;
 		this.isDirectory = is_directory;
 		this.firstBlockNo = fbn;
-		this.size = size;
+		this.size = size; //This is in bytes - Each entry is 32 bytes long
 		//Initialize dirBlock
 		this.createDirBlock();
 	}
