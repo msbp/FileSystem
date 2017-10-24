@@ -493,29 +493,6 @@ public class TFSFileSystem
 		}
 
 	}
-	// //helper_tfs_search_dir method:
-	// //	This is a helper method used by _tfs_search_dir method to find directory
-	// public static Directory helper_tfs_search_dir(byte[] name, Directory d){
-	// 	for (int i = 0; i < d.dList.size(); i++){
-	// 		if (compareByteArray(d.dList.get(i).name, name)){
-	// 			return d.dList.get(i);
-	// 		}
-	// 	}
-	// 	return null; //Returns null if the path was not found
-	// }
-	//compareByteArray method:
-  //  Used to quickly compare byte arrays
-  // public static boolean compareByteArray(byte[] a, byte[] b){
-  //   if (a.length != b.length){
-  //     return false;
-  //   }
-  //   for (int i = 0; i < a.length; i++){
-  //     if (a[i] != b[i]){
-  //       return false;
-  //     }
-  //   }
-  //   return true;
-  // }
 
 	//_tfs_get_entry_dir method:
 	//	Get the entry for name from the directory of which the first block number
@@ -568,38 +545,66 @@ public class TFSFileSystem
 	//	Returns -1 if spot is not available for entry in this directory
 	public static int _tfs_create_entry_dir(int block_no, byte[] name, byte nlength, byte is_directory, int fbn, int size){
 
-		//Creating new entry
+		//Creating new entry as an object
 		Directory d = new Directory(name, nlength, is_directory, fbn, size);
-		//Directory(byte[] name, byte nlength, byte is_directory, int fbn, int size){
+		int entry = block_no;
+		//int count = 0;
+		boolean empty = true;
 
-		byte[] buffer = new byte[BLOCK_SIZE];
-		_tfs_read_block(block_no, buffer);
+		byte[] tmp = new byte[BLOCK_SIZE];
+		byte[] bDir = new byte[32];
+		//Check to see if there is a spot in the directory
+		while (true){
+			_tfs_read_block(entry, tmp);
+			//Iterate through entries
+			for (int i = 0; i < 4; i++){
+				empty = true; //Resets variable
+				//Get entry
+				bDir = _tfs_get_bytes_block(tmp, (i*32), 32);
 
-		int entry = -1; //Initial entry value (0-3)
+				//If there is a byte that is not 0 then the entry is not empty
+				for (int j = 0; j < 32; j++){
+					if (bDir[j] != (byte)0){
+						empty = false;
+						break; //Leave loop
+					}
+				}
+				//if we found an empty entry then we should write out directory entry there
+				if (empty == true){
+					//Allocate block number for directory
+					if (fat.fatTable[fbn] != 0){
+						System.out.println("The First Block Number of the directory entry being created is already being used.\n
+						Create entry with different first block number.");
+					} else {
+						fat.fatTable[fbn] = -1; //Initialize it as one block alone
+						if (pcb.freeBlockPointer == fbn){
+							int newFreeBlock = fat.findFreeBlock();
+							pcb.updateFreeBlockPointer(newFreeBlock);
+							tfs_sync(); //Sync with disk
+						}
+					}
+					_tfs_put_bytes_block(tmp, (i*32), d.dirBlock, 32); //Adding entry to block
+					_tfs_write_block(entry, tmp); //Writing to disk
+					return 0;
+				}
 
-		//See if entry spot is available - If parentBlockNo points is 0 then entry is empty
-		//0 is default value for when creating block
-		for (int i = 0; i < 4; i++){
-			int check = (((buffer[1+(i*32)] & 0xFF) << 24)|((buffer[0+(i*32)] & 0xFF) << 16)|((buffer[2+(i*32)] & 0xFF) << 8)|(buffer[3+(i*32)] & 0xFF));
-			if (check == 0){
-				entry = i;
-				break;
 			}
+			int nextBlock = fat.fatTable[entry];
+			if (nextBlock == -1){
+				//Update FAT and PCB
+				fat.fatTable[entry] = pcb.freeBlockPointer;
+				fat.fatTable[pcb.freeBlockPointer] = -1;
+
+				int freeBlock = fat.findFreeBlock(); //Gets new free block
+				pcb.updateFreeBlockPointer(freeBlock);
+
+				//Updating disk FAT and PCB
+				tfs_sync();
+			}
+			entry = nextBlock;
+			//count++;
 		}
 
-		//return -1 if entry spot is not available
-		if (entry == -1){
-			return -1;
-		}
-
-		//Rewriting buffer so we can then write buffer to disk
-		for (int i = entry*32; i < (entry*32)+32; i++){
-			buffer[i] = d.dirBlock[i-(entry*32)];
-		}
-		//Write buffer back to disk
-		_tfs_write_block(block_no, buffer);
-
-		return entry;
 	}
 
 	//_tfs_delete_entry method:
@@ -1016,10 +1021,10 @@ class FAT{
 	}
 
 	//findFreeBlock method:
-	//	Goes through in memory fat and finds free block - Starting at 67
+	//	Goes through in memory fat and finds free block - Starting at 68
 	//	Returns -1 if no free blocks are available
 	public int findFreeBlock(){
-		for (int i = 67; i < fatTable.length; i++){
+		for (int i = 68; i < fatTable.length; i++){
 			if (fatTable[i] == 0){
 				return i;
 			}
