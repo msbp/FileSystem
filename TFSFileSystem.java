@@ -522,44 +522,45 @@ public class TFSFileSystem
 	//	is block_no
 	//	Returns -1 if name is not found, otherwise returns entry number in dir
 	public static int _tfs_get_entry_dir(int block_no, byte[] name, byte nlength, byte[] is_directory, int[] fbn, int[] size){
+		String strName = new String(name);
 		//Creating buffer and reading block into it
-		byte[] buffer = new byte[BLOCK_SIZE];
-		_tfs_read_block(block_no, buffer);
+		byte[] tmp = new byte[BLOCK_SIZE];
+		byte[] n = new byte[16]; //name entry holder
+		byte[] bDir = new byte[32]; //directory entry holder
 
-		byte[] currName = new byte[16]; //currName holds name of entry we are looking at
-		int entry = -1; //Keeps track of which entry has what we are looking for (0-3)
+		int count = 0;
+		int entry = block_no;
 
-		//According to Directory description, bytes 8 to 23 (*4) is = to name
-		int tracker = 0; //Tracker points to currName index
-		//Iterate through 4 entries in the block
-		for (int i = 0; i < 4; i++){
-			//Copy name into currName byte array
-			for (int j = 8 + (i*32); j < 24 + (i*32); j++, tracker++){
-				currName[tracker] = buffer[j];
+		while (true){
+			_tfs_read_block(entry, tmp);
+			//Iterate through entries
+			for (int i = 0; i < 4; i++){
+				//Get entry
+				bDir = _tfs_get_bytes_block(tmp, (i*32), 32);
+
+				//Compare names
+				for (int j = 8; j < 24; j++){
+					n[j-8] = bDir[j];
+				}
+				String currName = new String(n);
+				if (strName.equals(currName)){
+					//Saving variables here
+					nlength = bDir[5]; //Index 5 is nLength variable in Directory entry
+					is_directory[0] = bDir[4]; //Index 4 is is_directory in Directory entry
+					fbn[0] = (((bDir[24] & 0xFF) << 24)|((bDir[25] & 0xFF) << 16)|((bDir[26] & 0xFF) << 8)|(bDir[27] & 0xFF)); //Getting firstBlockNo as an int
+					size[0] = (((bDir[28] & 0xFF) << 24)|((bDir[29] & 0xFF) << 16)|((bDir[30] & 0xFF) << 8)|(bDir[31] & 0xFF)); //Getting directory size as an int
+
+					return count + i; //This is equal to entry number in directory
+				}
+
 			}
-			//Compare currName to name - Converting bytes to string for comparison
-			String tmp = new String(currName);
-			if (tmp.equals(new String(name))){
-				entry = i; //Set entry value if name is found
-				break; //Break out of loop
+			int nextBlock = fat.fatTable[entry];
+			if (nextBlock == -1){
+				return -1;
 			}
-			tracker = 0; //Reset tracker
+			entry = nextBlock;
+			count++;
 		}
-
-		//If entry was not found return -1
-		if (entry == -1){
-			return -1;
-		}
-
-		//Retrieving is_directory
-		is_directory[0] = buffer[4+(entry*32)];
-		//Retrieving first block number (same as current block number)
-		fbn[0] = block_no;
-		//Retrieving size (converting 4 bytes into int)
-		int s = (((buffer[28+(entry*32)] & 0xFF) << 24)|((buffer[29+(entry*32)] & 0xFF) << 16)|((buffer[30+(entry*32)] & 0xFF) << 8)|(buffer[31+(entry*32)] & 0xFF));
-		size[0] = s;
-
-		return entry;
 	}
 
 	//_tfs_create_entry_dir method:
