@@ -423,7 +423,7 @@ public class TFSFileSystem
 	//	Delete a file, name contains full path
 	public static int tfs_delete(byte[] name, int nlength)
 	{
-		int parent_blockNo = _tfs_search_dir(name, nlength);
+		int parent_blockNo = _tfs_search_dir(name, nlength); //Getting parent block number
 
 		String newName = new String(name);
 		String path[] = newName.split("/");
