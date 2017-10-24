@@ -573,12 +573,14 @@ public class TFSFileSystem
 				if (empty == true){
 					//Allocate block number for directory
 					if (fat.fatTable[fbn] != 0){
-						System.out.println("The First Block Number of the directory entry being created is already being used.\n
-						Create entry with different first block number.");
+						System.out.println("The First Block Number of the directory entry being created is already being used.\nCreate entry with different first block number.");
 					} else {
 						fat.fatTable[fbn] = -1; //Initialize it as one block alone
 						if (pcb.freeBlockPointer == fbn){
 							int newFreeBlock = fat.findFreeBlock();
+							if (newFreeBlock == -1){
+								return -1;
+							}
 							pcb.updateFreeBlockPointer(newFreeBlock);
 							tfs_sync(); //Sync from memory to disk
 						}
@@ -611,41 +613,46 @@ public class TFSFileSystem
 	//	Deletes the entry for name from the directory of which first block number
 	//	is block_no
 	public static int _tfs_delete_entry(int block_no, byte[] name, byte nlength){
-		//Reading directory entries
-		byte[] buffer = new byte[BLOCK_SIZE];
-		_tfs_read_block(block_no, buffer);
+		int entry = block_no;
+		byte[] tmp = new byte[BLOCK_SIZE];
+		byte[] bDir = new byte[32];
+		byte[] n = new byte[16];
 
-		byte[] currName = new byte[16]; //currName holds name of entry we are looking at
-		int entry = -1; //Keeps track of which entry has what we are looking for (0-3)
 
-		//According to Directory description, bytes 8 to 23 (*4) is = to name
-		int tracker = 0; //Tracker points to currName index
-		//Iterate through 4 entries in the block
-		for (int i = 0; i < 4; i++){
-			//Copy name into currName byte array
-			for (int j = 8 + (i*32); j < 24 + (i*32); j++, tracker++){
-				currName[tracker] = buffer[j];
+		String strName = new String(name); //Creating a String from byte[] name
+
+		//Check for the file in directory
+		while (true){
+			_tfs_read_block(entry, tmp); //Reading block into buffer
+			//Iterate through entries looking for name
+			for (int i = 0; i < 4; i++){
+				//Get directory entry
+				bDir = _tfs_get_bytes_block(tmp, (i*32), 32);
+
+				//Compare names
+				for (int j = 8; j < 24; j++){
+					n[j-8] = bDir[j]; //Writing name to name buffer
+				}
+				String currName = new String(n); //Converting byte[] to String
+				//If we found the entry then delete the entry from directory
+				if (strName.equals(currName)){
+					//Setting all values of entry to 0
+					for (int j = 0; j < 32; j++){
+						bDir[j] = 0; //Set it to 0
+					}
+
+					_tfs_put_bytes_block(tmp, (i*32), bDir, 32); //Add changes to block
+					_tfs_write_block(entry, tmp); //Write block to disk
+					return 0;
+				}
 			}
-			//Compare currName to name - Converting bytes to string for comparison
-			String tmp = new String(currName);
-			if (tmp.equals(new String(name))){
-				entry = i; //Set entry value if name is found
-				break; //Break out of loop
+			int nextBlock = fat.fatTable[entry];
+			if (nextBlock == -1){
+				return -1;
 			}
-			tracker = 0; //Reset tracker
+			entry = nextBlock;
 		}
 
-		//If entry was not found return -1
-		if (entry == -1){
-			return -1;
-		}
-
-		//Removing the directory entry
-		for (int i = entry*32; i < (entry*32)+32; i++){
-			buffer[i] = (byte)0;
-		}
-
-		return entry;
 	}
 
 	//_tfs_update_entry_dir method:
