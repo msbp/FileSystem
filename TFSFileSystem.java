@@ -323,31 +323,113 @@ public class TFSFileSystem
 		return;
 	}
 
+	//Helper method for tfs_create()
+	public static int helper_tfs_create(byte[] name, int nlength){
+		String str = new String(name); //Creating a string from name
+		String[] path = str.split("/"); //Creating a string array with the path
+		//If first character is not root then we don't have full path
+    if (str.charAt(0) != '/'){
+      return -1;
+    }
+
+		//Find block that root belongs to => Root is located on block 67
+		//Retriever block 67
+		byte[] bDir = new byte[32]; //directory entry holder
+		byte[] tmp = new byte[BLOCK_SIZE]; //tmp block holder
+		byte[] n = new byte[16]; //name holder
+
+		int currName = 1;
+		boolean found = false;
+
+		//Reads root, as we are always starting at root
+		int entry = 67;
+		_tfs_read_block(entry, tmp);
+		bDir = _tfs_get_bytes_block(tmp, 0, 32);
+		//Retrieving size of directory (size of root right now)
+		int sizeOfDir = (((bDir[28] & 0xFF) << 24)|((bDir[29] & 0xFF) << 16)|((bDir[30] & 0xFF) << 8)|(bDir[31] & 0xFF));
+		sizeOfDir = sizeOfDir/BLOCK_SIZE; //Amount of entries in each directory
+		//Retrieving first block number of root directory
+		int firstBlockNo = (((bDir[24] & 0xFF) << 24)|((bDir[25] & 0xFF) << 16)|((bDir[26] & 0xFF) << 8)|(bDir[27] & 0xFF)); //Retrieve first block number of directory entries
+
+		//Reading root directory items
+		_tfs_read_block(firstBlockNo, tmp);
+
+		while (true) {
+			found = false; //Setting false variable to false
+			//Iterate through
+			for (int i = 0, secondI = 0; i < sizeOfDir; i++, secondI++){
+				//If we read 4 entries already, we need to look at the following block that contains the rest of directory entries
+				if (i%4 == 0){
+					int nextBlock = fat.fatTable[entry];
+					if (nextBlock == -1){
+						return -1;
+					}
+					entry = nextBlock;
+					_tfs_read_block(nextBlock, tmp);
+					secondI = 0;
+				}
+				//Get the entry
+				bDir = _tfs_get_bytes_block(tmp, (secondI*32), 32);
+
+				//Compare the names
+				for (int j = 8; j < 24; j++){
+					n[j-8] = bDir[j];
+				}
+				String strName = new String(n);
+				if (strName.equals(path[currName])){
+					//If we are at the end of the path and we are at the last entry then return the parent block
+					if (path.length-2 == currName){
+						found = true;
+						return (((bDir[24] & 0xFF) << 24)|((bDir[25] & 0xFF) << 16)|((bDir[26] & 0xFF) << 8)|(bDir[27] & 0xFF)); //Retrieve first block number of directory entry
+					}
+					found = true;
+					currName++;
+					sizeOfDir = (((bDir[28] & 0xFF) << 24)|((bDir[29] & 0xFF) << 16)|((bDir[30] & 0xFF) << 8)|(bDir[31] & 0xFF));
+					sizeOfDir = sizeOfDir/BLOCK_SIZE;
+					firstBlockNo = (((bDir[24] & 0xFF) << 24)|((bDir[25] & 0xFF) << 16)|((bDir[26] & 0xFF) << 8)|(bDir[27] & 0xFF)); //Retrieve first block number of directory entries
+					_tfs_read_block(firstBlockNo, tmp); //Reading new block
+					break; //Break out of first loop and look into next directory
+				}
+			}
+			//If we arrive at the end of the loop, we hav
+			if (found == false){
+				return -1;
+			}
+
+		}
+
+
+
+	}
+
 	//tfs_create method:
 	//	Create a file, name contains full path
+	//	Returns file descriptor entry
 	public static int tfs_create(byte[] name, int nlength)
 	{
-		//Retrieving block_no
-		int block_no = _tfs_search_dir(name, nlength);
-		//Retrieving file name from full path
-		String str = new String(name);
-		String[] path = str.split("/");
-		byte[] new_name = path[path.length-1].getBytes();
-		//Creating entry
-		return _tfs_create_entry_dir(block_no, new_name, (byte)new_name.length, (byte)1, block_no, 32);
+		//Find the block number of parent directory
+		int block_no = helper_tfs_create(name, nlength); //Gets firstBlockNo of parent directory of name
+
+		String newName = new String(name); //Creating a string from name
+		String[] path = newName.split("/"); //Creating a string array with the path
+		newName = path[path.length-1];
+
+		//The method will allocate the entry on table for it
+		_tfs_create_entry_dir(block_no, newName.getBytes(), (byte)newName.length(), (byte)1, pcb.freeBlockPointer, 0);
+		return tfs_open(name, nlength); //Creates a FileDescriptor in FDT for the new file
 	}
 
 	//tfs_delete method:
 	//	Delete a file, name contains full path
 	public static int tfs_delete(byte[] name, int nlength)
 	{
-		int block_no = _tfs_search_dir(name, nlength);
-		//Retrieving file name from full path
-		String str = new String(name);
-		String[] path = str.split("/");
-		byte[] new_name = path[path.length-1].getBytes();
-		//Deleting entry
-		return _tfs_delete_entry(block_no, new_name, (byte)new_name.length);
+		int parent_blockNo = _tfs_search_dir(name, nlength);
+
+		String newName = new String(name);
+		String path[] = newName.split("/");
+		newName = path[path.length-1];
+
+		return _tfs_delete_entry(parent_blockNo, newName.getBytes(), (byte)newName.length());
 	}
 
 	//tfs_create_dir method:
@@ -442,6 +524,7 @@ public class TFSFileSystem
 	//_tfs_search_dir method:
 	//	Returns the first block number of the parent directory in which name exists
 	public static int _tfs_search_dir(byte[] name, int nlength){
+		int parentBlockNo = 67; //This will be returned - It is the first block of the parent -- Initialize it to point to root block
 		String str = new String(name); //Creating a string from name
 		String[] path = str.split("/"); //Creating a string array with the path
 		//If first character is not root then we don't have full path
@@ -478,6 +561,9 @@ public class TFSFileSystem
 				//If we read 4 entries already, we need to look at the following block that contains the rest of directory entries
 				if (i%4 == 0){
 					int nextBlock = fat.fatTable[entry];
+					if (nextBlock == -1){
+						return -1;
+					}
 					entry = nextBlock;
 					_tfs_read_block(nextBlock, tmp);
 					secondI = 0;
@@ -494,12 +580,14 @@ public class TFSFileSystem
 					//If we are at the end of the path and we are at the last entry then return the parent block
 					if (path.length-1 == currName){
 						found = true;
-						return (((bDir[0] & 0xFF) << 24)|((bDir[1] & 0xFF) << 16)|((bDir[2] & 0xFF) << 8)|(bDir[3] & 0xFF)); //Retrieve parent block number of directory entry
+						return parentBlockNo; //Retrieve parent block number of directory entry
 					}
 					found = true;
 					currName++;
 					sizeOfDir = (((bDir[28] & 0xFF) << 24)|((bDir[29] & 0xFF) << 16)|((bDir[30] & 0xFF) << 8)|(bDir[31] & 0xFF));
+					sizeOfDir = sizeOfDir/BLOCK_SIZE;
 					firstBlockNo = (((bDir[24] & 0xFF) << 24)|((bDir[25] & 0xFF) << 16)|((bDir[26] & 0xFF) << 8)|(bDir[27] & 0xFF)); //Retrieve first block number of directory entries
+					parentBlockNo = firstBlockNo; //Updating parent block number
 					_tfs_read_block(firstBlockNo, tmp); //Reading new block
 					break; //Break out of first loop and look into next directory
 				}
@@ -592,13 +680,14 @@ public class TFSFileSystem
 				if (empty == true){
 					//Allocate block number for directory
 					if (fat.fatTable[fbn] != 0){
-						System.out.println("The First Block Number of the directory entry being created is already being used.\nCreate entry with different first block number.");
+						System.out.println("The First Block Number (passed as parameter) of the directory entry being created is already being used.\nCreate entry with different first block number.");
 					} else {
 						fat.fatTable[fbn] = -1; //Initialize it as one block alone
 						if (pcb.freeBlockPointer == fbn){
 							int newFreeBlock = fat.findFreeBlock();
 							if (newFreeBlock == -1){
-								return -1;
+								pcb.updateFreeBlockPointer(-1);
+								return -1; //Return error because its full. No more free blocks.
 							}
 							pcb.updateFreeBlockPointer(newFreeBlock);
 							tfs_sync(); //Sync from memory to disk
@@ -618,7 +707,6 @@ public class TFSFileSystem
 
 				int freeBlock = fat.findFreeBlock(); //Gets new free block
 				pcb.updateFreeBlockPointer(freeBlock);
-
 				//Updating disk FAT and PCB
 				tfs_sync();
 			}
