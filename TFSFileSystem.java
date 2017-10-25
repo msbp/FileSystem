@@ -412,10 +412,10 @@ public class TFSFileSystem
 
 		String newName = new String(name); //Creating a string from name
 		String[] path = newName.split("/"); //Creating a string array with the path
-		newName = path[path.length-1];
+		byte[] n = path[path.length-1].getBytes();
 
 		//The method will allocate the entry on table for it
-		_tfs_create_entry_dir(block_no, newName.getBytes(), (byte)newName.length(), (byte)1, pcb.freeBlockPointer, 0);
+		_tfs_create_entry_dir(block_no, n, (byte)n.length, (byte)1, pcb.freeBlockPointer, 0);
 		return tfs_open(name, nlength); //Creates a FileDescriptor in FDT for the new file
 	}
 
@@ -424,39 +424,41 @@ public class TFSFileSystem
 	public static int tfs_delete(byte[] name, int nlength)
 	{
 		int parent_blockNo = _tfs_search_dir(name, nlength); //Getting parent block number
-
+		//Get name of the file only, not entire path
 		String newName = new String(name);
 		String path[] = newName.split("/");
-		newName = path[path.length-1];
+		byte[] n = path[path.length-1].getBytes();
 
-		return _tfs_delete_entry(parent_blockNo, newName.getBytes(), (byte)newName.length());
+		return _tfs_delete_entry(parent_blockNo, n, (byte)n.length);
 	}
 
 	//tfs_create_dir method:
 	// Create a directory, name contains full path
 	public static int tfs_create_dir(byte[] name, int nlength)
 	{
-		//Retrieving block_no
-		int block_no = _tfs_search_dir(name, nlength);
-		//Retrieving file name from full path
-		String str = new String(name);
-		String[] path = str.split("/");
-		byte[] new_name = path[path.length-1].getBytes();
-		//Creating entry
-		return _tfs_create_entry_dir(block_no, new_name, (byte)new_name.length, (byte)0, block_no, 32);
+		//Find the block number of parent directory
+		int block_no = helper_tfs_create(name, nlength); //Gets firstBlockNo of parent directory of name
+
+		String newName = new String(name); //Creating a string from name
+		String[] path = newName.split("/"); //Creating a string array with the path
+		byte[] n = path[path.length-1].getBytes();
+
+		//The method will allocate the entry on table for it
+		_tfs_create_entry_dir(block_no, n, (byte)n.length, (byte)0, pcb.freeBlockPointer, 0);
+		return tfs_open(name, nlength); //Creates a FileDescriptor in FDT for the new file
 	}
 
 	//tfs_delete_dir method:
 	//	Deletes a directory, name contains full path
 	public static int tfs_delete_dir(byte[] name, int nlength)
 	{
-		int block_no = _tfs_search_dir(name, nlength);
-		//Retrieving file name from full path
-		String str = new String(name);
-		String[] path = str.split("/");
-		byte[] new_name = path[path.length-1].getBytes();
-		//Deleting entry
-		return _tfs_delete_entry(block_no, new_name, (byte)new_name.length);
+		int parent_blockNo = _tfs_search_dir(name, nlength); //Getting parent block number
+		//Get name of the file only, not entire path
+		String newName = new String(name);
+		String path[] = newName.split("/");
+		byte[] n = path[path.length-1].getBytes();
+
+		return _tfs_delete_entry(parent_blockNo, n, (byte)n.length);
 	}
 
 
