@@ -25,6 +25,20 @@
 				 own and then appended to its parent directory using an in-class method.
 				 The root directory initialized in-memory in tfs_mkfs will be written to
 				 to the disk as a byte array.
+				 ***
+				 ***
+				 ***
+				 The directory structure was updated to be written to disk. When a
+				 directory is created, the entry is written to the disk. Directory is not
+				 kept in memory in a linked list anymore, as we have a small file System
+				 accessing the in disk directory is done pretty quickly. Each directory
+				 has a starting block that holds more directory entries or file entries.
+				 These directory entries point to their own blocks, holding more directories
+				 or file entries. The file entries point to their starting block, where
+				 their content can be read from.
+				 ***
+				 ***
+				 ***
 		FDT: The File Descriptor Table was implemented as a linked list of
 				 FileDescriptor objects. As these objects are created, they are appended
 				 to the linked list and given an index on the list. This index is the
@@ -131,7 +145,7 @@ public class TFSFileSystem
 
 
 		//Writing root directory to disk at block 67
-		_tfs_create_entry_dir(67, root.name, root.nLength, root.isDirectory, root.firstBlockNo, root.size);
+		_tfs_create_entry_dir(68, root.name, root.nLength, root.isDirectory, root.firstBlockNo+1, root.size);
 
 		return 0;
 	}
@@ -705,7 +719,6 @@ public class TFSFileSystem
 				//Update FAT and PCB
 				fat.fatTable[entry] = pcb.freeBlockPointer;
 				fat.fatTable[pcb.freeBlockPointer] = -1;
-
 				int freeBlock = fat.findFreeBlock(); //Gets new free block
 				pcb.updateFreeBlockPointer(freeBlock);
 				//Updating disk FAT and PCB
