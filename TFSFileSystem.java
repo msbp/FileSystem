@@ -80,7 +80,6 @@ public class TFSFileSystem
 	/*
 	 * TFS API
 	 */
-
 	//tfs_mkfs method:
 	// Opens the disk file, creates and initializes PCB, FAT and
 	// Directory objects in memory. It also writes PCB and FAT to
