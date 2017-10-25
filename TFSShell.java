@@ -307,24 +307,78 @@ public class TFSShell extends Thread
 			tmp[1] = buffer[i+1];
 			System.out.print(new String(tmp));
 		}
-
 		System.out.println("\n");
 		return;
 	}
 
 	void append(String file, int number)
 	{
+		byte[] name = file.getBytes();
+		int fd = fs.tfs_open(name, name.length); //Opening fd entry
 
+		if (fd == -1){
+			System.out.println("File does not exist.");
+			return;
+		}
+
+		String data = "";
+		for (int i = 0; i < number; i++){
+			data += "D"; //Adding random character Number times
+		}
+		byte[] buf = data.getBytes();
+
+		fs.tfs_write(fd, buf, buf.length);
 		return;
 	}
 
 	void cp(String file, String directory)
 	{
+		byte[] sourceName = file.getBytes();
+		byte[] destinationName = directory.getBytes();
+		int fd1 = fs.tfs_open(sourceName, sourceName.length); //Opening fd entry
+
+		if (fd1 == -1){
+			System.out.println("Source file does not exist");
+			return;
+		}
+
+		fs.tfs_create(destinationName, destinationName.length); //Creating file entry
+		int fd2 = fs.tfs_open(destinationName, destinationName.length); //Opening FD
+		byte[] buf = new byte[128];
+		//Copying data
+		fs.tfs_read(fd1, buf, buf.length);
+		fs.tfs_write(fd2, buf, buf.length);
+
 		return;
 	}
 
 	void rename(String source_file, String destination_file)
 	{
+		byte[] sourceName = source_file.getBytes();
+
+		int entryNo = fs._tfs_search_dir(sourceName, sourceName.length);
+
+		if (entryNo == -1){
+			System.out.println("There was an error finding the source file.");
+			return;
+		}
+
+		String[] path = source_file.split("/"); //Creating a string array with the path
+		byte[] n = path[path.length-1].getBytes();
+
+		byte[] is_directory = new byte[1];
+		int[] fbn = new int[1];
+		int[] size = new int[1];
+		if (fs._tfs_get_entry_dir(entryNo, n, (byte)n.length, is_directory, fbn, size) == -1){
+			System.out.println("There was an error.");
+			return;
+		}
+
+		if (fs._tfs_update_entry_dir(entryNo, n, (byte)n.length, is_directory[0], fbn[0], size[0]) == -1){
+			System.out.println("There was an error.");
+			return;
+		}
+
 		return;
 	}
 
